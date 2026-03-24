@@ -8,6 +8,12 @@ from sklearn.linear_model import LinearRegression
 from sklearn.metrics import r2_score
 import xgboost as xgb
 import os
+import logging
+import traceback
+
+# Setup logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = Flask(__name__)
 
@@ -29,18 +35,23 @@ class DataFetcher:
                 return fetcher_cache[cache_key]
         
         try:
+            logger.info(f"yfinance: Fetching {ticker} data for period {period}")
             stock = yf.Ticker(ticker)
             df = stock.history(period=period)
             if df.empty:
+                logger.error(f"yfinance: No data returned for {ticker}")
                 raise ValueError(f"No data found for {ticker}")
+            logger.info(f"yfinance: Got {len(df)} rows for {ticker}")
             fetcher_cache[cache_key] = df
             fetcher_cache_time[cache_key] = now
             return df
         except Exception as e:
+            logger.error(f"yfinance error for {ticker}: {str(e)}")
             return None
     
     def get_current_price(self, ticker):
         try:
+            logger.info(f"yfinance: Fetching current price for {ticker}")
             stock = yf.Ticker(ticker)
             hist = stock.history(period="2d")
             if len(hist) >= 2:
@@ -50,6 +61,7 @@ class DataFetcher:
             else:
                 current = hist["Close"].iloc[-1] if len(hist) > 0 else 0
                 change_pct = 0
+            logger.info(f"yfinance: Got price ${current} for {ticker}")
             return {
                 "ticker": ticker,
                 "current_price": round(current, 2),
@@ -57,6 +69,7 @@ class DataFetcher:
                 "last_updated": datetime.now().isoformat()
             }
         except Exception as e:
+            logger.error(f"yfinance error getting price for {ticker}: {str(e)}")
             return None
 
 fetcher = DataFetcher()
@@ -258,28 +271,39 @@ def get_stock_prediction(ticker):
     if request.method == "OPTIONS":
         return "", 200
     
-    current_info = fetcher.get_current_price(ticker)
-    if current_info is None:
-        return jsonify({"error": f"Could not fetch data for {ticker}"}), 404
-    
-    df = fetcher.get_stock_data(ticker, period="1y")
-    if df is None:
-        return jsonify({"error": f"Could not fetch data for {ticker}"}), 404
-    
-    lr_1d = lr_model.predict(df, days_ahead=1)
-    lr_7d = lr_model.predict(df, days_ahead=7)
-    xgb_pred = xgb_model.predict(df)
-    mc_pred = mc_model.simulate(df, days=7, simulations=1000)
-    
-    return jsonify({
-        "ticker": ticker,
-        "current_price": current_info["current_price"],
-        "change_pct": current_info["change_pct"],
-        "last_updated": datetime.now().isoformat(),
-        "linear_regression": {"next_day": lr_1d, "next_7_days": lr_7d},
-        "xgboost": xgb_pred,
-        "monte_carlo": mc_pred
-    })
+    try:
+        logger.info(f"Fetching data for {ticker}")
+        current_info = fetcher.get_current_price(ticker)
+        if current_info is None:
+            logger.error(f"Could not get current price for {ticker}")
+            return jsonify({"error": f"Could not fetch data for {ticker}"}), 404
+        
+        logger.info(f"Fetching historical data for {ticker}")
+        df = fetcher.get_stock_data(ticker, period="1y")
+        if df is None:
+            logger.error(f"Could not get historical data for {ticker}")
+            return jsonify({"error": f"Could not fetch data for {ticker}"}), 404
+        
+        logger.info(f"Running predictions for {ticker}")
+        lr_1d = lr_model.predict(df, days_ahead=1)
+        lr_7d = lr_model.predict(df, days_ahead=7)
+        xgb_pred = xgb_model.predict(df)
+        mc_pred = mc_model.simulate(df, days=7, simulations=1000)
+        
+        logger.info(f"Successfully analyzed {ticker}")
+        return jsonify({
+            "ticker": ticker,
+            "current_price": current_info["current_price"],
+            "change_pct": current_info["change_pct"],
+            "last_updated": datetime.now().isoformat(),
+            "linear_regression": {"next_day": lr_1d, "next_7_days": lr_7d},
+            "xgboost": xgb_pred,
+            "monte_carlo": mc_pred
+        })
+    except Exception as e:
+        logger.error(f"Error analyzing {ticker}: {str(e)}")
+        logger.error(traceback.format_exc())
+        return jsonify({"error": f"Internal error: {str(e)}"}), 500
 
 @app.route("/api/stock/<ticker>/history", methods=["GET", "OPTIONS"])
 def get_stock_history(ticker):
