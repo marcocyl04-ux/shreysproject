@@ -202,16 +202,18 @@ class XGBoostModel:
             return {"error": "No valid features"}
         latest = df_features.iloc[-1:][self.feature_names]
         probs = self.model.predict_proba(latest)[0]
-        importance = dict(zip(self.feature_names, self.model.feature_importances_.tolist()))
+        # Convert numpy types to Python native types
+        probs = [float(p) for p in probs]
+        importance = dict(zip(self.feature_names, [float(i) for i in self.model.feature_importances_]))
         top_features = sorted(importance.items(), key=lambda x: x[1], reverse=True)[:5]
         expected_return = probs[0] * -0.03 + probs[1] * 0 + probs[2] * 0.03
         max_prob = max(probs)
         confidence = "high" if max_prob > 0.5 else ("medium" if max_prob > 0.35 else "low")
         return {
             "direction_probabilities": {"down": round(probs[0], 3), "sideways": round(probs[1], 3), "up": round(probs[2], 3)},
-            "expected_return_7d": round(expected_return * 100, 2),
+            "expected_return_7d": round(float(expected_return * 100), 2),
             "confidence": confidence,
-            "top_features": [{"feature": f, "importance": round(i, 3)} for f, i in top_features]
+            "top_features": [{"feature": f, "importance": round(float(i), 3)} for f, i in top_features]
         }
 
 class MonteCarloModel:
