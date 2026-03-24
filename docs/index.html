@@ -3,1083 +3,190 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trading Dashboard</title>
+    <title>The Sovereign Terminal</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
-        h1 { margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #333; }
-        .section { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        h2 { margin-bottom: 15px; font-size: 18px; }
-        input[type="text"] { padding: 10px; font-size: 16px; border: 1px solid #ddd; border-radius: 4px; width: 200px; }
-        button { padding: 10px 20px; font-size: 16px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px; }
-        button:hover { background: #1976D2; }
-        button:disabled { background: #ccc; cursor: not-allowed; }
-        button.secondary { background: #757575; }
-        button.secondary:hover { background: #616161; }
-        button.success { background: #4CAF50; }
-        button.success:hover { background: #45a049; }
-        button.danger { background: #f44336; }
-        button.danger:hover { background: #da190b; }
-        .status { margin-top: 10px; padding: 10px; border-radius: 4px; }
-        .status.connected { background: #e8f5e9; color: #2e7d32; }
-        .status.error { background: #ffebee; color: #c62828; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; margin-top: 20px; }
-        .card { padding: 15px; border-radius: 8px; }
-        .card.lr { background: #e3f2fd; }
-        .card.xgb { background: #e8f5e9; }
-        .card.mc { background: #fff3e0; }
-        .card h3 { margin-bottom: 10px; font-size: 16px; }
-        .card p { margin: 5px 0; font-size: 14px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 1000px; margin: 0 auto; padding: 20px; background: #121315; color: #f8fafc; line-height: 1.6; }
+        h1 { margin-bottom: 10px; font-size: 28px; font-weight: 600; letter-spacing: -0.02em; }
+        .subtitle { color: #94a3b8; font-size: 14px; margin-bottom: 30px; }
+        .section { background: #1e293b; padding: 20px; border-radius: 12px; margin-bottom: 20px; }
+        .section-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        h2 { font-size: 16px; font-weight: 600; color: #f8fafc; }
+        .status-bar { display: flex; align-items: center; gap: 20px; margin-bottom: 30px; padding: 15px 20px; background: #1e293b; border-radius: 12px; }
+        .status-indicator { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+        .status-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; animation: pulse 2s infinite; }
+        .status-dot.connecting { background: #f59e0b; }
+        .status-dot.error { background: #ef4444; animation: none; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+        .loading-spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.3); border-radius: 50%; border-top-color: #00FF94; animation: spin 1s linear infinite; margin-right: 8px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        input[type="text"], input[type="number"] { padding: 12px 16px; font-size: 16px; background: #0f172a; border: 1px solid #334155; border-radius: 8px; color: #f8fafc; width: 150px; transition: border-color 0.2s; }
+        input[type="text"]:focus, input[type="number"]:focus { outline: none; border-color: #00FF94; }
+        button { padding: 12px 20px; font-size: 14px; font-weight: 600; background: #00FF94; color: #0f172a; border: none; border-radius: 8px; cursor: pointer; margin-left: 10px; transition: all 0.2s; }
+        button:hover { background: #4ade80; transform: translateY(-1px); }
+        button:disabled { background: #334155; color: #64748b; cursor: not-allowed; transform: none; }
+        button.secondary { background: transparent; border: 1px solid #334155; color: #94a3b8; }
+        button.secondary:hover { background: rgba(255,255,255,0.05); border-color: #475569; color: #f8fafc; }
+        button.danger { background: #dc2626; color: white; }
+        button.danger:hover { background: #ef4444; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 20px; margin-top: 20px; }
+        .card { padding: 20px; border-radius: 12px; background: #0f172a; border: 1px solid #1e293b; }
+        .card h3 { margin-bottom: 15px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; }
+        .card p { margin: 8px 0; font-size: 14px; color: #cbd5e1; }
         .hidden { display: none; }
-        
-        /* Watchlist styles */
-        .watchlist-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #f5f5f5; margin-bottom: 8px; border-radius: 4px; }
-        .watchlist-item:hover { background: #eeeeee; }
-        .watchlist-ticker { font-weight: bold; font-size: 18px; cursor: pointer; color: #2196F3; }
+        .watchlist-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; background: #0f172a; margin-bottom: 8px; border-radius: 8px; border: 1px solid #1e293b; transition: all 0.2s; }
+        .watchlist-item:hover { border-color: #334155; background: #1e293b; }
+        .watchlist-ticker { font-weight: 700; font-size: 18px; cursor: pointer; color: #00FF94; }
         .watchlist-ticker:hover { text-decoration: underline; }
-        .watchlist-price { font-size: 14px; color: #666; }
-        .watchlist-change { font-size: 14px; }
-        .watchlist-change.up { color: #4CAF50; }
-        .watchlist-change.down { color: #f44336; }
-        .watchlist-controls { display: flex; gap: 10px; }
-        
-        /* Refresh controls */
-        .refresh-controls { display: flex; align-items: center; gap: 15px; margin-top: 10px; flex-wrap: wrap; }
-        .refresh-controls label { font-size: 14px; }
-        .refresh-controls select { padding: 5px 10px; font-size: 14px; }
-        .last-updated { font-size: 12px; color: #666; }
-        
-        /* Export section */
-        .export-buttons { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
+        .watchlist-price { font-size: 14px; color: #94a3b8; margin-left: 10px; }
+        .watchlist-change { font-size: 14px; font-weight: 600; }
+        .watchlist-change.up { color: #4ade80; }
+        .watchlist-change.down { color: #f87171; }
+        .controls-row { display: flex; align-items: center; gap: 15px; flex-wrap: wrap; }
+        .last-updated { font-size: 13px; color: #64748b; }
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .modal-content { background: #1e293b; padding: 24px; border-radius: 16px; max-width: 900px; width: 100%; max-height: 85vh; overflow-y: auto; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { padding: 12px; text-align: left; border-bottom: 1px solid #334155; }
+        th { color: #94a3b8; font-weight: 600; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; }
+        tr:hover { background: rgba(255,255,255,0.02); }
+        .quick-actions { display: flex; gap: 12px; margin-bottom: 20px; }
+        .quick-action-btn { flex: 1; padding: 16px; background: #0f172a; border: 1px solid #1e293b; border-radius: 12px; text-align: center; cursor: pointer; transition: all 0.2s; }
+        .quick-action-btn:hover { border-color: #00FF94; background: rgba(0,255,148,0.05); }
+        .quick-action-btn .icon { font-size: 24px; margin-bottom: 8px; }
+        .quick-action-btn .label { font-size: 14px; font-weight: 600; color: #f8fafc; }
+        .quick-action-btn .sublabel { font-size: 12px; color: #64748b; margin-top: 4px; }
+        .empty-state { padding: 40px; text-align: center; color: #64748b; font-style: italic; }
+        .pos-badge { display: inline-block; padding: 4px 8px; background: rgba(0,255,148,0.1); color: #00FF94; border-radius: 4px; font-size: 12px; font-weight: 600; }
+        .neg-badge { display: inline-block; padding: 4px 8px; background: rgba(248,113,113,0.1); color: #f87171; border-radius: 4px; font-size: 12px; font-weight: 600; }
     </style>
 </head>
 <body>
-    <h1>Trading Dashboard</h1>
+    <h1>The Sovereign Terminal</h1>
+    <p class="subtitle">ML-Powered Market Intelligence</p>
 
-    <!-- Connection -->
-    <div class="section">
-        <h2>Backend Connection</h2>
-        <div id="connect-section">
-            <input type="text" id="url-input" placeholder="https://your-api.onrender.com" style="width: 300px;">
-            <button id="connect-btn" onclick="connect()">Connect</button>
+    <div class="status-bar" id="status-bar">
+        <div class="status-indicator">
+            <span class="loading-spinner" id="status-spinner"></span>
+            <span id="status-text">Connecting to service...</span>
         </div>
-        <div id="connected-section" class="hidden">
-            <p class="status connected">● Connected to <span id="connected-url"></span></p>
-            <div class="refresh-controls">
-                <label>Auto-refresh:</label>
-                <select id="refresh-interval" onchange="setAutoRefresh()">
-                    <option value="0">Off</option>
-                    <option value="30">30 seconds</option>
-                    <option value="60" selected>1 minute</option>
-                    <option value="300">5 minutes</option>
-                </select>
-                <button class="secondary" onclick="refreshAll()">Refresh Now</button>
-                <span class="last-updated" id="last-updated"></span>
+        <div class="controls-row" id="status-controls" style="margin-left: auto;">
+            <select id="refresh-interval" onchange="setAutoRefresh()" style="padding: 8px 12px; background: #0f172a; border: 1px solid #334155; border-radius: 6px; color: #f8fafc;">
+                <option value="0">Auto: Off</option>
+                <option value="30">Auto: 30s</option>
+                <option value="60" selected>Auto: 1m</option>
+                <option value="300">Auto: 5m</option>
+            </select>
+            <button class="secondary" onclick="refreshAll()">Refresh Now</button>
+            <span class="last-updated" id="last-updated"></span>
+        </div>
+    </div>
+
+    <div id="main-content" class="hidden">
+        <div class="quick-actions">
+            <div class="quick-action-btn" onclick="focusAnalyze()">
+                <div class="icon">🔍</div>
+                <div class="label">Analyze</div>
+                <div class="sublabel">Single stock deep dive</div>
             </div>
-            <button onclick="disconnect()" style="margin-top: 10px;">Disconnect</button>
-        </div>
-        <div id="status-msg"></div>
-    </div>
-
-    <!-- Watchlist -->
-    <div class="section hidden" id="watchlist-section">
-        <h2>Watchlist <span id="watchlist-count" style="font-size: 14px; color: #666;"></span></h2>
-        <div id="watchlist-items"></div>
-        <div style="margin-top: 15px;">
-            <input type="text" id="watchlist-input" placeholder="Add ticker (e.g., NVDA)" maxlength="5">
-            <button class="success" onclick="addToWatchlist()">Add</button>
-            <button class="secondary" onclick="analyzeAll()">Analyze All</button>
-        </div>
-    </div>
-
-    <!-- Search -->
-    <div class="section hidden" id="search-section">
-        <h2>Analyze Stock</h2>
-        <input type="text" id="ticker-input" placeholder="AAPL" maxlength="5" style="text-transform: uppercase;">
-        <button id="analyze-btn" onclick="analyze()">Analyze</button>
-        <button class="secondary" onclick="addCurrentToWatchlist()">+ Watchlist</button>
-    </div>
-
-    <!-- Batch Analysis -->
-    <div class="section hidden" id="batch-section">
-        <h2>Batch Analysis <span style="font-size: 12px; color: #666; font-weight: normal;">(comma-separated tickers)</span></h2>
-        <input type="text" id="batch-input" placeholder="AAPL, MSFT, NVDA, TSLA" style="width: 300px; text-transform: uppercase;">
-        <button onclick="analyzeBatch()">Analyze All</button>
-        <div id="batch-progress" style="margin-top: 10px; font-size: 14px; color: #666;"></div>
-    </div>
-
-    <!-- Compare Mode -->
-    <div class="section hidden" id="compare-section">
-        <h2>Compare Stocks</h2>
-        <div style="display: flex; gap: 10px; flex-wrap: wrap; align-items: center;">
-            <input type="text" id="compare-1" placeholder="AAPL" maxlength="5" style="text-transform: uppercase; width: 100px;">
-            <span>vs</span>
-            <input type="text" id="compare-2" placeholder="MSFT" maxlength="5" style="text-transform: uppercase; width: 100px;">
-            <span>vs</span>
-            <input type="text" id="compare-3" placeholder="NVDA (optional)" maxlength="5" style="text-transform: uppercase; width: 150px;">
-            <button onclick="compareStocks()">Compare</button>
-        </div>
-    </div>
-
-    <!-- Portfolio Simulator -->
-    <div class="section hidden" id="portfolio-section">
-        <h2>Portfolio Simulator <span style="font-size: 12px; color: #666; font-weight: normal;">(paper trading)</span></h2>
-        <div id="portfolio-list"></div>
-        <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
-            <input type="text" id="portfolio-ticker" placeholder="Ticker" maxlength="5" style="text-transform: uppercase; width: 100px;">
-            <input type="number" id="portfolio-shares" placeholder="Shares" min="1" style="width: 100px;">
-            <input type="number" id="portfolio-price" placeholder="Entry $" min="0.01" step="0.01" style="width: 100px;">
-            <button class="success" onclick="addPosition()">Add Position</button>
-        </div>
-        <div id="portfolio-summary" style="margin-top: 15px; padding: 15px; background: #f5f5f5; border-radius: 4px;"></div>
-    </div>
-
-    <!-- Prediction History -->
-    <div class="section hidden" id="history-section">
-        <h2>Prediction History <span style="font-size: 12px; color: #666; font-weight: normal;">(track model accuracy)</span></h2>
-        <div style="margin-bottom: 15px;">
-            <input type="text" id="history-ticker-input" placeholder="View history for ticker (e.g., AAPL)" maxlength="5" style="text-transform: uppercase; width: 250px;">
-            <button onclick="viewPredictionHistory()">View History</button>
-            <button class="secondary" onclick="showAllHistory()">Show All Tickers</button>
-        </div>
-        <div id="history-summary" style="margin-bottom: 15px; padding: 15px; background: #e8f5e9; border-radius: 4px; display: none;"></div>
-        <div id="history-list"></div>
-    </div
-
-    <!-- Results -->
-    <div class="section hidden" id="results-section">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-            <h2>Results for <span id="result-ticker"></span> — $<span id="result-price"></span> (<span id="result-change"></span>%)</h2>
-            <div class="export-buttons">
-                <button class="secondary" onclick="exportJSON()">Export JSON</button>
-                <button class="secondary" onclick="exportCSV()">Export CSV</button>
+            <div class="quick-action-btn" onclick="focusBatch()">
+                <div class="icon">📊</div>
+                <div class="label">Batch</div>
+                <div class="sublabel">Up to 10 at once</div>
+            </div>
+            <div class="quick-action-btn" onclick="focusCompare()">
+                <div class="icon">⚖️</div>
+                <div class="label">Compare</div>
+                <div class="sublabel">2-3 stocks side-by-side</div>
             </div>
         </div>
-        <div class="grid">
-            <div class="card lr">
-                <h3>Linear Regression</h3>
-                <div id="lr-content"></div>
-            </div>
-            <div class="card xgb">
-                <h3>XGBoost</h3>
-                <div id="xgb-content"></div>
-            </div>
-            <div class="card mc">
-                <h3>Monte Carlo</h3>
-                <div id="mc-content"></div>
+
+        <div class="section" id="search-section">
+            <div class="section-header"><h2>Analyze Stock</h2></div>
+            <div class="controls-row">
+                <input type="text" id="ticker-input" placeholder="AAPL" maxlength="5" style="text-transform: uppercase; width: 120px;">
+                <button id="analyze-btn" onclick="analyze()">Analyze</button>
+                <button class="secondary" onclick="addCurrentToWatchlist()">+ Watchlist</button>
             </div>
         </div>
-    </div>
 
-    <script>
-        // Global state
-        let backendUrl = localStorage.getItem('backendUrl') || '';
-        let watchlist = JSON.parse(localStorage.getItem('watchlist') || '[]');
-        let currentResult = null;
-        let refreshIntervalId = null;
-        let lastRefreshTime = null;
-        
-        // Initialize on load
-        document.addEventListener('DOMContentLoaded', () => {
-            if (backendUrl) {
-                // Try to reconnect
-                connect(true);
-            }
-            renderWatchlist();
-        });
-
-        async function connect(skipInput = false) {
-            const input = document.getElementById('url-input');
-            const btn = document.getElementById('connect-btn');
-            const status = document.getElementById('status-msg');
-            
-            const url = skipInput ? backendUrl : input.value.trim();
-            if (!url) return;
-
-            if (!skipInput) {
-                btn.disabled = true;
-                btn.textContent = 'Connecting...';
-            }
-            status.innerHTML = '';
-
-            try {
-                const response = await fetch(`${url}/health`);
-                if (response.ok) {
-                    backendUrl = url;
-                    localStorage.setItem('backendUrl', backendUrl);
-                    document.getElementById('connect-section').classList.add('hidden');
-                    document.getElementById('connected-section').classList.remove('hidden');
-                    document.getElementById('connected-url').textContent = url;
-                    document.getElementById('search-section').classList.remove('hidden');
-                    document.getElementById('watchlist-section').classList.remove('hidden');
-                    
-                    // Load saved refresh setting
-                    const savedInterval = localStorage.getItem('refreshInterval') || '60';
-                    document.getElementById('refresh-interval').value = savedInterval;
-                    if (savedInterval !== '0') {
-                        setAutoRefresh();
-                    }
-                    
-                    // Refresh watchlist data
-                    refreshWatchlistData();
-                } else {
-                    throw new Error('Backend returned error');
-                }
-            } catch (err) {
-                status.innerHTML = `<p class="status error">Failed to connect: ${err.message}</p>`;
-                backendUrl = '';
-                localStorage.removeItem('backendUrl');
-            } finally {
-                if (!skipInput) {
-                    btn.disabled = false;
-                    btn.textContent = 'Connect';
-                }
-            }
-        }
-
-        function disconnect() {
-            backendUrl = '';
-            localStorage.removeItem('backendUrl');
-            clearInterval(refreshIntervalId);
-            refreshIntervalId = null;
-            document.getElementById('connect-section').classList.remove('hidden');
-            document.getElementById('connected-section').classList.add('hidden');
-            document.getElementById('search-section').classList.add('hidden');
-            document.getElementById('watchlist-section').classList.add('hidden');
-            document.getElementById('results-section').classList.add('hidden');
-            document.getElementById('status-msg').innerHTML = '';
-            document.getElementById('url-input').value = '';
-        }
-
-        // Auto-refresh functionality
-        function setAutoRefresh() {
-            const interval = parseInt(document.getElementById('refresh-interval').value);
-            localStorage.setItem('refreshInterval', interval);
-            
-            if (refreshIntervalId) {
-                clearInterval(refreshIntervalId);
-                refreshIntervalId = null;
-            }
-            
-            if (interval > 0) {
-                refreshIntervalId = setInterval(() => {
-                    if (currentResult) {
-                        analyze(currentResult.ticker, true);
-                    }
-                    refreshWatchlistData();
-                }, interval * 1000);
-            }
-        }
-
-        function refreshAll() {
-            if (currentResult) {
-                analyze(currentResult.ticker, true);
-            }
-            refreshWatchlistData();
-        }
-
-        function updateLastRefreshTime() {
-            lastRefreshTime = new Date();
-            document.getElementById('last-updated').textContent = 
-                'Last updated: ' + lastRefreshTime.toLocaleTimeString();
-        }
-
-        // Watchlist functionality
-        function renderWatchlist() {
-            const container = document.getElementById('watchlist-items');
-            const count = document.getElementById('watchlist-count');
-            
-            if (watchlist.length === 0) {
-                container.innerHTML = '<p style="color: #666; font-style: italic;">No stocks in watchlist. Add tickers below.</p>';
-                count.textContent = '';
-                return;
-            }
-            
-            count.textContent = `(${watchlist.length})`;
-            container.innerHTML = watchlist.map(item => `
-                <div class="watchlist-item" data-ticker="${item.ticker}">
-                    <div>
-                        <span class="watchlist-ticker" onclick="analyze('${item.ticker}')">${item.ticker}</span>
-                        <span class="watchlist-price" id="price-${item.ticker}">
-                            ${item.price ? '$' + item.price : ''}
-                        </span>
-                        <span class="watchlist-change ${item.change >= 0 ? 'up' : 'down'}" id="change-${item.ticker}">
-                            ${item.change ? (item.change >= 0 ? '+' : '') + item.change + '%' : ''}
-                        </span>
-                    </div>
-                    <div class="watchlist-controls">
-                        <button class="secondary" onclick="analyze('${item.ticker}')">Analyze</button>
-                        <button class="danger" onclick="removeFromWatchlist('${item.ticker}')">Remove</button>
-                    </div>
+        <div class="section hidden" id="results-section">
+            <div class="section-header">
+                <h2>Analysis: <span id="result-ticker"></span> — $<span id="result-price"></span> <span id="result-change" style="font-size: 14px;"></span></h2>
+                <div>
+                    <button class="secondary" onclick="exportJSON()">Export JSON</button>
+                    <button class="secondary" onclick="exportCSV()">Export CSV</button>
                 </div>
-            `).join('');
-        }
+            </div>
+            <div class="grid">
+                <div class="card"><h3>Linear Regression</h3><div id="lr-content"></div></div>
+                <div class="card"><h3>XGBoost Ensemble</h3><div id="xgb-content"></div></div>
+                <div class="card"><h3>Monte Carlo Simulation</h3><div id="mc-content"></div></div>
+            </div>
+        </div>
 
-        function addToWatchlist() {
-            const input = document.getElementById('watchlist-input');
-            const ticker = input.value.trim().toUpperCase();
-            
-            if (!ticker) return;
-            if (watchlist.some(item => item.ticker === ticker)) {
-                alert(`${ticker} is already in watchlist`);
-                return;
-            }
-            
-            watchlist.push({ ticker, price: null, change: null });
-            localStorage.setItem('watchlist', JSON.stringify(watchlist));
-            input.value = '';
-            renderWatchlist();
-            
-            // Fetch initial data
-            if (backendUrl) {
-                fetchWatchlistItem(ticker);
-            }
-        }
+        <div class="section" id="batch-section">
+            <div class="section-header"><h2>Batch Analysis</h2></div>
+            <div class="controls-row">
+                <input type="text" id="batch-input" placeholder="AAPL, MSFT, NVDA, TSLA" style="width: 300px; text-transform: uppercase;">
+                <button onclick="analyzeBatch()">Analyze All</button>
+            </div>
+            <div id="batch-progress" style="margin-top: 10px; font-size: 14px; color: #94a3b8;"></div>
+        </div>
 
-        function addCurrentToWatchlist() {
-            if (!currentResult) return;
-            const ticker = currentResult.ticker;
-            
-            if (watchlist.some(item => item.ticker === ticker)) {
-                alert(`${ticker} is already in watchlist`);
-                return;
-            }
-            
-            watchlist.push({ 
-                ticker, 
-                price: currentResult.current_price, 
-                change: currentResult.change_pct 
-            });
-            localStorage.setItem('watchlist', JSON.stringify(watchlist));
-            renderWatchlist();
-            alert(`${ticker} added to watchlist`);
-        }
+        <div class="section" id="compare-section">
+            <div class="section-header"><h2>Compare Stocks</h2></div>
+            <div class="controls-row">
+                <input type="text" id="compare-1" placeholder="AAPL" maxlength="5" style="text-transform: uppercase; width: 100px;">
+                <span style="color: #64748b;">vs</span>
+                <input type="text" id="compare-2" placeholder="MSFT" maxlength="5" style="text-transform: uppercase; width: 100px;">
+                <span style="color: #64748b;">vs</span>
+                <input type="text" id="compare-3" placeholder="NVDA" maxlength="5" style="text-transform: uppercase; width: 100px;">
+                <button onclick="compareStocks()">Compare</button>
+            </div>
+        </div>
 
-        function removeFromWatchlist(ticker) {
-            watchlist = watchlist.filter(item => item.ticker !== ticker);
-            localStorage.setItem('watchlist', JSON.stringify(watchlist));
-            renderWatchlist();
-        }
+        <div class="section" id="watchlist-section">
+            <div class="section-header">
+                <h2>Watchlist <span id="watchlist-count" style="font-size: 14px; color: #64748b;"></span></h2>
+                <button class="secondary" onclick="analyzeAll()">Analyze All</button>
+            </div>
+            <div id="watchlist-items"></div>
+            <div style="margin-top: 15px; display: flex; gap: 10px;">
+                <input type="text" id="watchlist-input" placeholder="Add ticker" maxlength="5" style="text-transform: uppercase; width: 120px;">
+                <button class="secondary" onclick="addToWatchlist()">+ Add</button>
+            </div>
+        </div>
 
-        async function fetchWatchlistItem(ticker) {
-            if (!backendUrl) return;
-            
-            try {
-                const response = await fetch(`${backendUrl}/api/stock/${ticker}`);
-                if (!response.ok) return;
-                const data = await response.json();
-                
-                // Update watchlist item
-                const item = watchlist.find(i => i.ticker === ticker);
-                if (item) {
-                    item.price = data.current_price;
-                    item.change = data.change_pct;
-                    localStorage.setItem('watchlist', JSON.stringify(watchlist));
-                    renderWatchlist();
-                }
-            } catch (err) {
-                console.error(`Failed to fetch ${ticker}:`, err);
-            }
-        }
-
-        async function refreshWatchlistData() {
-            if (!backendUrl || watchlist.length === 0) return;
-            
-            for (const item of watchlist) {
-                await fetchWatchlistItem(item.ticker);
-            }
-            updateLastRefreshTime();
-        }
-
-        async function analyzeAll() {
-            if (!backendUrl || watchlist.length === 0) return;
-            
-            for (const item of watchlist) {
-                await fetchWatchlistItem(item.ticker);
-            }
-            updateLastRefreshTime();
-            alert(`Analyzed ${watchlist.length} stocks`);
-        }
-
-        // Export functionality
-        function exportJSON() {
-            if (!currentResult) {
-                alert('No data to export. Analyze a stock first.');
-                return;
-            }
-            
-            const dataStr = JSON.stringify(currentResult, null, 2);
-            const blob = new Blob([dataStr], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${currentResult.ticker}_analysis_${new Date().toISOString().split('T')[0]}.json`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-
-        function exportCSV() {
-            if (!currentResult) {
-                alert('No data to export. Analyze a stock first.');
-                return;
-            }
-            
-            const data = currentResult;
-            const lr = data.linear_regression?.next_day;
-            const xgb = data.xgboost;
-            const mc = data.monte_carlo;
-            
-            let csv = 'Metric,Value\n';
-            csv += `Ticker,${data.ticker}\n`;
-            csv += `Current Price,${data.current_price}\n`;
-            csv += `Change %,${data.change_pct}\n`;
-            csv += `LR Next Day Price,${lr?.predicted_price || 'N/A'}\n`;
-            csv += `LR Next Day Return %,${lr?.predicted_return || 'N/A'}\n`;
-            csv += `LR Trend,${lr?.trend || 'N/A'}\n`;
-            csv += `XGB Up %,${xgb?.direction_probabilities?.up ? (xgb.direction_probabilities.up * 100).toFixed(1) : 'N/A'}\n`;
-            csv += `XGB Expected 7d %,${xgb?.expected_return_7d || 'N/A'}\n`;
-            csv += `XGB Confidence,${xgb?.confidence || 'N/A'}\n`;
-            csv += `MC Median 7d,${mc?.percentiles?.p50?.[7] || 'N/A'}\n`;
-            csv += `MC VaR 95%,${mc?.var_95 || 'N/A'}\n`;
-            csv += `MC Volatility %,${mc?.volatility || 'N/A'}\n`;
-            
-            const blob = new Blob([csv], { type: 'text/csv' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `${data.ticker}_analysis_${new Date().toISOString().split('T')[0]}.csv`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-
-        async function analyze(ticker = null, silent = false) {
-            const input = document.getElementById('ticker-input');
-            const btn = document.getElementById('analyze-btn');
-            const targetTicker = ticker || input.value.trim().toUpperCase();
-            
-            if (!targetTicker) return;
-            if (!silent) {
-                btn.disabled = true;
-                btn.textContent = 'Loading...';
-            }
-
-            try {
-                const response = await fetch(`${backendUrl}/api/stock/${targetTicker}`);
-                if (!response.ok) {
-                    const err = await response.json();
-                    throw new Error(err.error || 'Failed to fetch');
-                }
-                const data = await response.json();
-                currentResult = data;
-                displayResults(data);
-                if (!silent) updateLastRefreshTime();
-            } catch (err) {
-                if (!silent) alert('Error: ' + err.message);
-                console.error(err);
-            } finally {
-                if (!silent) {
-                    btn.disabled = false;
-                    btn.textContent = 'Analyze';
-                }
-            }
-        }
-
-        function displayResults(data) {
-            document.getElementById('result-ticker').textContent = data.ticker;
-            document.getElementById('result-price').textContent = data.current_price;
-            document.getElementById('result-change').textContent = data.change_pct;
-
-            // Linear Regression
-            const lr = data.linear_regression?.next_day;
-            if (lr?.error) {
-                document.getElementById('lr-content').innerHTML = `<p>${lr.error}</p>`;
-            } else {
-                document.getElementById('lr-content').innerHTML = `
-                    <p><strong>Next Day:</strong> $${lr?.predicted_price} (${lr?.predicted_return}%)</p>
-                    <p><strong>7 Days:</strong> $${data.linear_regression?.next_7_days?.predicted_price} (${data.linear_regression?.next_7_days?.predicted_return}%)</p>
-                    <p><strong>Trend:</strong> ${lr?.trend}</p>
-                    <p><strong>R²:</strong> ${lr?.r2_score}</p>
-                `;
-            }
-
-            // XGBoost
-            const xgb = data.xgboost;
-            if (xgb?.error) {
-                document.getElementById('xgb-content').innerHTML = `<p>${xgb.error}</p>`;
-            } else {
-                document.getElementById('xgb-content').innerHTML = `
-                    <p><strong>Up:</strong> ${(xgb?.direction_probabilities?.up * 100)?.toFixed(1)}%</p>
-                    <p><strong>Sideways:</strong> ${(xgb?.direction_probabilities?.sideways * 100)?.toFixed(1)}%</p>
-                    <p><strong>Down:</strong> ${(xgb?.direction_probabilities?.down * 100)?.toFixed(1)}%</p>
-                    <p><strong>Expected 7d:</strong> ${xgb?.expected_return_7d}%</p>
-                    <p><strong>Confidence:</strong> ${xgb?.confidence}</p>
-                `;
-            }
-
-            // Monte Carlo
-            const mc = data.monte_carlo;
-            if (mc?.error) {
-                document.getElementById('mc-content').innerHTML = `<p>${mc.error}</p>`;
-            } else {
-                document.getElementById('mc-content').innerHTML = `
-                    <p><strong>Median (7d):</strong> $${mc?.percentiles?.p50?.[7]}</p>
-                    <p><strong>Range:</strong> $${mc?.percentiles?.p5?.[7]} - $${mc?.percentiles?.p95?.[7]}</p>
-                    <p><strong>VaR (95%):</strong> ${mc?.var_95}%</p>
-                    <p><strong>Volatility:</strong> ${mc?.volatility}%</p>
-                `;
-            }
-
-            document.getElementById('results-section').classList.remove('hidden');
-        }
-
-        // Batch Analysis
-        async function analyzeBatch() {
-            const input = document.getElementById('batch-input');
-            const progress = document.getElementById('batch-progress');
-            const tickers = input.value.split(',').map(t => t.trim().toUpperCase()).filter(t => t);
-            
-            if (tickers.length === 0) return;
-            if (tickers.length > 10) {
-                alert('Maximum 10 tickers at once');
-                return;
-            }
-            
-            progress.textContent = `Analyzing 0/${tickers.length}...`;
-            const results = [];
-            
-            for (let i = 0; i < tickers.length; i++) {
-                const ticker = tickers[i];
-                try {
-                    const response = await fetch(`${backendUrl}/api/stock/${ticker}`);
-                    if (response.ok) {
-                        const data = await response.json();
-                        results.push(data);
-                    }
-                } catch (err) {
-                    console.error(`Failed to fetch ${ticker}:`, err);
-                }
-                progress.textContent = `Analyzing ${i + 1}/${tickers.length}...`;
-            }
-            
-            progress.textContent = '';
-            displayBatchResults(results);
-        }
-
-        function displayBatchResults(results) {
-            if (results.length === 0) {
-                alert('No results to display');
-                return;
-            }
-            
-            let html = '<div style="overflow-x: auto;"><table style="width: 100%; border-collapse: collapse; font-size: 14px;">';
-            html += '<thead><tr style="background: #f5f5f5;">';
-            html += '<th style="padding: 10px; text-align: left;">Ticker</th>';
-            html += '<th style="padding: 10px; text-align: left;">Price</th>';
-            html += '<th style="padding: 10px; text-align: left;">Change</th>';
-            html += '<th style="padding: 10px; text-align: left;">LR Trend</th>';
-            html += '<th style="padding: 10px; text-align: left;">XGB Conf</th>';
-            html += '<th style="padding: 10px; text-align: left;">XGB Expected</th>';
-            html += '<th style="padding: 10px; text-align: left;">MC VaR</th>';
-            html += '</tr></thead><tbody>';
-            
-            results.forEach((data, idx) => {
-                const lr = data.linear_regression?.next_day;
-                const xgb = data.xgboost;
-                const mc = data.monte_carlo;
-                html += `<tr style="border-bottom: 1px solid #eee; ${idx % 2 === 0 ? 'background: #fafafa;' : ''}">`;
-                html += `<td style="padding: 10px; font-weight: bold;">${data.ticker}</td>`;
-                html += `<td style="padding: 10px;">$${data.current_price}</td>`;
-                html += `<td style="padding: 10px; ${data.change_pct >= 0 ? 'color: #4CAF50;' : 'color: #f44336;'}">${data.change_pct}%</td>`;
-                html += `<td style="padding: 10px;">${lr?.trend || 'N/A'}</td>`;
-                html += `<td style="padding: 10px;">${xgb?.confidence || 'N/A'}</td>`;
-                html += `<td style="padding: 10px; ${xgb?.expected_return_7d >= 0 ? 'color: #4CAF50;' : 'color: #f44336;'}">${xgb?.expected_return_7d || 'N/A'}%</td>`;
-                html += `<td style="padding: 10px;">${mc?.var_95 || 'N/A'}%</td>`;
-                html += '</tr>';
-            });
-            
-            html += '</tbody></table></div>';
-            
-            // Create a modal-like display
-            const modal = document.createElement('div');
-            modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px;';
-            modal.innerHTML = `
-                <div style="background: white; padding: 20px; border-radius: 8px; max-width: 900px; width: 100%; max-height: 80vh; overflow-y: auto;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <h2>Batch Analysis Results (${results.length} stocks)</h2>
-                        <button onclick="this.closest('.modal-overlay').remove()" style="background: #f44336;">Close</button>
-                    </div>
-                    ${html}
-                </div>
-            `;
-            modal.className = 'modal-overlay';
-            document.body.appendChild(modal);
-        }
-
-        // Compare Mode
-        async function compareStocks() {
-            const t1 = document.getElementById('compare-1').value.trim().toUpperCase();
-            const t2 = document.getElementById('compare-2').value.trim().toUpperCase();
-            const t3 = document.getElementById('compare-3').value.trim().toUpperCase();
-            
-            const tickers = [t1, t2, t3].filter(t => t);
-            if (tickers.length < 2) {
-                alert('Enter at least 2 tickers to compare');
-                return;
-            }
-            
-            const results = [];
-            for (const ticker of tickers) {
-                try {
-                    const response = await fetch(`${backendUrl}/api/stock/${ticker}`);
-                    if (response.ok) {
-                        const data = await response.json();
-                        results.push(data);
-                    }
-                } catch (err) {
-                    console.error(`Failed to fetch ${ticker}:`, err);
-                }
-            }
-            
-            displayCompareResults(results);
-        }
-
-        function displayCompareResults(results) {
-            if (results.length < 2) {
-                alert('Need at least 2 valid results to compare');
-                return;
-            }
-            
-            let html = '<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 15px;">';
-            
-            results.forEach(data => {
-                const lr = data.linear_regression?.next_day;
-                const xgb = data.xgboost;
-                const mc = data.monte_carlo;
-                
-                html += `
-                    <div style="background: #f5f5f5; padding: 15px; border-radius: 8px;">
-                        <h3 style="font-size: 24px; margin-bottom: 10px;">${data.ticker}</h3>
-                        <p style="font-size: 20px; margin-bottom: 15px;">$${data.current_price} <span style="font-size: 14px; ${data.change_pct >= 0 ? 'color: #4CAF50;' : 'color: #f44336;'}">${data.change_pct}%</span></p>
-                        
-                        <div style="background: #e3f2fd; padding: 10px; border-radius: 4px; margin-bottom: 10px;">
-                            <strong>Linear Regression</strong><br>
-                            Next Day: $${lr?.predicted_price || 'N/A'} (${lr?.predicted_return || 'N/A'}%)<br>
-                            Trend: ${lr?.trend || 'N/A'}
-                        </div>
-                        
-                        <div style="background: #e8f5e9; padding: 10px; border-radius: 4px; margin-bottom: 10px;">
-                            <strong>XGBoost</strong><br>
-                            Confidence: ${xgb?.confidence || 'N/A'}<br>
-                            Up: ${xgb?.direction_probabilities?.up ? (xgb.direction_probabilities.up * 100).toFixed(0) : 'N/A'}%<br>
-                            Expected 7d: ${xgb?.expected_return_7d || 'N/A'}%
-                        </div>
-                        
-                        <div style="background: #fff3e0; padding: 10px; border-radius: 4px;">
-                            <strong>Monte Carlo</strong><br>
-                            Median 7d: $${mc?.percentiles?.p50?.[7] || 'N/A'}<br>
-                            VaR: ${mc?.var_95 || 'N/A'}%
-                        </div>
-                    </div>
-                `;
-            });
-            
-            html += '</div>';
-            
-            // Summary comparison
-            html += '<div style="margin-top: 20px; padding: 15px; background: #e8f5e9; border-radius: 8px;">';
-            html += '<h3>Quick Comparison</h3>';
-            html += '<table style="width: 100%; font-size: 14px;">';
-            html += '<tr><td><strong>Best LR Trend:</strong></td><td>' + results.reduce((best, r) => {
-                const trend = r.linear_regression?.next_day?.trend;
-                return trend === 'upward' ? r.ticker : best;
-            }, 'None') + '</td></tr>';
-            html += '<tr><td><strong>Highest XGB Confidence:</strong></td><td>' + results.reduce((best, r) => {
-                const conf = r.xgboost?.confidence;
-                return conf === 'high' ? r.ticker : best;
-            }, 'None') + '</td></tr>';
-            html += '<tr><td><strong>Best Expected Return:</strong></td><td>' + results.reduce((best, r) => {
-                const ret = r.xgboost?.expected_return_7d || -999;
-                return ret > (best.ret || -999) ? { ticker: r.ticker, ret } : best;
-            }, {}).ticker + '</td></tr>';
-            html += '</table></div>';
-            
-            const modal = document.createElement('div');
-            modal.style.cssText = 'position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000; display: flex; align-items: center; justify-content: center; padding: 20px;';
-            modal.innerHTML = `
-                <div style="background: white; padding: 20px; border-radius: 8px; max-width: 1000px; width: 100%; max-height: 90vh; overflow-y: auto;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                        <h2>Compare Stocks</h2>
-                        <button onclick="this.closest('.modal-overlay').remove()" style="background: #f44336;">Close</button>
-                    </div>
-                    ${html}
-                </div>
-            `;
-            modal.className = 'modal-overlay';
-            document.body.appendChild(modal);
-        }
-
-        // Portfolio Simulator
-        let portfolio = JSON.parse(localStorage.getItem('portfolio') || '[]');
-
-        function renderPortfolio() {
-            const container = document.getElementById('portfolio-list');
-            const summary = document.getElementById('portfolio-summary');
-            
-            if (portfolio.length === 0) {
-                container.innerHTML = '<p style="color: #666; font-style: italic;">No positions. Add a paper trade above.</p>';
-                summary.innerHTML = '';
-                return;
-            }
-            
-            let totalValue = 0;
-            let totalCost = 0;
-            
-            container.innerHTML = portfolio.map((pos, idx) => {
-                const currentValue = pos.currentPrice ? pos.shares * pos.currentPrice : 0;
-                const cost = pos.shares * pos.entryPrice;
-                const pnl = currentValue - cost;
-                const pnlPct = cost > 0 ? (pnl / cost) * 100 : 0;
-                
-                totalValue += currentValue;
-                totalCost += cost;
-                
-                return `
-                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #f5f5f5; margin-bottom: 8px; border-radius: 4px;">
-                        <div>
-                            <strong>${pos.ticker}</strong> - ${pos.shares} shares @ $${pos.entryPrice}
-                            ${pos.currentPrice ? `<br><span style="font-size: 12px; color: #666;">Current: $${pos.currentPrice} | Value: $${currentValue.toFixed(2)}</span>` : ''}
-                        </div>
-                        <div style="text-align: right;">
-                            ${pos.currentPrice ? `<span style="color: ${pnl >= 0 ? '#4CAF50' : '#f44336'}; font-weight: bold;">${pnl >= 0 ? '+' : ''}$${pnl.toFixed(2)} (${pnlPct.toFixed(1)}%)</span><br>` : ''}
-                            <button class="danger" style="padding: 5px 10px; font-size: 12px;" onclick="removePosition(${idx})">Remove</button>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-            
-            const totalPnl = totalValue - totalCost;
-            const totalPnlPct = totalCost > 0 ? (totalPnl / totalCost) * 100 : 0;
-            
-            summary.innerHTML = `
-                <h3>Portfolio Summary</h3>
-                <p><strong>Total Cost:</strong> $${totalCost.toFixed(2)}</p>
-                <p><strong>Current Value:</strong> $${totalValue.toFixed(2)}</p>
-                <p><strong>P&L:</strong> <span style="color: ${totalPnl >= 0 ? '#4CAF50' : '#f44336'}; font-weight: bold; font-size: 18px;">${totalPnl >= 0 ? '+' : ''}$${totalPnl.toFixed(2)} (${totalPnlPct.toFixed(1)}%)</span></p>
+        <div class="section" id="portfolio-section">
+            <div class="section-header">
+                <h2>Portfolio Simulator</h2>
                 <button class="secondary" onclick="updatePortfolioPrices()">Update Prices</button>
-            `;
-        }
+            </div>
+            <div id="portfolio-list"></div>
+            <div id="portfolio-summary" style="margin-top: 15px; padding: 15px; background: #0f172a; border-radius: 8px;"></div>
+            <div style="margin-top: 15px; display: flex; gap: 10px; flex-wrap: wrap;">
+                <input type="text" id="portfolio-ticker" placeholder="Ticker" maxlength="5" style="text-transform: uppercase; width: 100px;">
+                <input type="number" id="portfolio-shares" placeholder="Shares" min="1" style="width: 100px;">
+                <input type="number" id="portfolio-price" placeholder="Entry $" min="0.01" step="0.01" style="width: 100px;">
+                <button class="secondary" onclick="addPosition()">+ Add Position</button>
+            </div>
+        </div>
 
-        function addPosition() {
-            const tickerInput = document.getElementById('portfolio-ticker');
-            const sharesInput = document.getElementById('portfolio-shares');
-            const priceInput = document.getElementById('portfolio-price');
-            
-            const ticker = tickerInput.value.trim().toUpperCase();
-            const shares = parseInt(sharesInput.value);
-            const price = parseFloat(priceInput.value);
-            
-            if (!ticker || !shares || !price) {
-                alert('Please fill in all fields');
-                return;
-            }
-            
-            portfolio.push({
-                ticker,
-                shares,
-                entryPrice: price,
-                currentPrice: null,
-                addedAt: new Date().toISOString()
-            });
-            
-            localStorage.setItem('portfolio', JSON.stringify(portfolio));
-            tickerInput.value = '';
-            sharesInput.value = '';
-            priceInput.value = '';
-            renderPortfolio();
-        }
+        <div class="section" id="history-section">
+            <div class="section-header">
+                <h2>Prediction History</h2>
+                <button class="secondary" onclick="showAllHistory()">View All Tickers</button>
+            </div>
+            <div style="margin-bottom: 15px; display: flex; gap: 10px;">
+                <input type="text" id="history-ticker-input" placeholder="View history for ticker (e.g., AAPL)" maxlength="5" style="text-transform: uppercase; width: 250px;">
+                <button onclick="viewPredictionHistory()">View History</button>
+            </div>
+            <div id="history-summary" style="margin-bottom: 15px; padding: 15px; background: #0f172a; border-radius: 8px; display: none;"></div>
+            <div id="history-list"></div>
+        </div>
+    </div>
 
-        function removePosition(index) {
-            portfolio.splice(index, 1);
-            localStorage.setItem('portfolio', JSON.stringify(portfolio));
-            renderPortfolio();
-        }
-
-        async function updatePortfolioPrices() {
-            if (portfolio.length === 0) return;
-            
-            for (let i = 0; i < portfolio.length; i++) {
-                const pos = portfolio[i];
-                try {
-                    const response = await fetch(`${backendUrl}/api/stock/${pos.ticker}`);
-                    if (response.ok) {
-                        const data = await response.json();
-                        portfolio[i].currentPrice = data.current_price;
-                    }
-                } catch (err) {
-                    console.error(`Failed to update ${pos.ticker}:`, err);
-                }
-            }
-            
-            localStorage.setItem('portfolio', JSON.stringify(portfolio));
-            renderPortfolio();
-        }
-
-        // Initialize portfolio on connect
-        const originalConnect = connect;
-        connect = async function(skipInput = false) {
-            await originalConnect(skipInput);
-            if (backendUrl) {
-                renderPortfolio();
-                document.getElementById('batch-section').classList.remove('hidden');
-                document.getElementById('compare-section').classList.remove('hidden');
-                document.getElementById('portfolio-section').classList.remove('hidden');
-                document.getElementById('history-section').classList.remove('hidden');
-            }
-        };
-
-        // Prediction History
-        const PREDICTION_HISTORY_KEY = 'predictionHistory';
-        const MAX_HISTORY_PER_TICKER = 20;
-
-        function savePrediction(data) {
-            if (!data || !data.ticker) return;
-            
-            let history = JSON.parse(localStorage.getItem(PREDICTION_HISTORY_KEY) || '{}');
-            if (!history[data.ticker]) {
-                history[data.ticker] = [];
-            }
-            
-            const predictionRecord = {
-                timestamp: new Date().toISOString(),
-                ticker: data.ticker,
-                currentPrice: data.current_price,
-                changePct: data.change_pct,
-                lrNextDayPrice: data.linear_regression?.next_day?.predicted_price,
-                lrNextDayReturn: data.linear_regression?.next_day?.predicted_return,
-                lrTrend: data.linear_regression?.next_day?.trend,
-                xgbUpProb: data.xgboost?.direction_probabilities?.up,
-                xgbExpectedReturn: data.xgboost?.expected_return_7d,
-                xgbConfidence: data.xgboost?.confidence,
-                mcMedian7d: data.monte_carlo?.percentiles?.p50?.[7],
-                mcVaR: data.monte_carlo?.var_95
-            };
-            
-            history[data.ticker].unshift(predictionRecord);
-            
-            // Keep only last N predictions per ticker
-            if (history[data.ticker].length > MAX_HISTORY_PER_TICKER) {
-                history[data.ticker] = history[data.ticker].slice(0, MAX_HISTORY_PER_TICKER);
-            }
-            
-            localStorage.setItem(PREDICTION_HISTORY_KEY, JSON.stringify(history));
-        }
-
-        function getPredictionHistory(ticker = null) {
-            const history = JSON.parse(localStorage.getItem(PREDICTION_HISTORY_KEY) || '{}');
-            if (ticker) {
-                return history[ticker] || [];
-            }
-            return history;
-        }
-
-        function calculateAccuracy(ticker) {
-            const history = getPredictionHistory(ticker);
-            if (history.length < 2) return null;
-            
-            let lrCorrect = 0;
-            let xgbCorrect = 0;
-            let total = 0;
-            
-            for (let i = 0; i < history.length - 1; i++) {
-                const pred = history[i];
-                const next = history[i + 1]; // Next prediction (earlier in time)
-                
-                // Skip if missing data
-                if (!pred.lrTrend || !next.currentPrice || !pred.currentPrice) continue;
-                
-                const actualChange = next.currentPrice - pred.currentPrice;
-                const actualTrend = actualChange > 0 ? 'upward' : (actualChange < 0 ? 'downward' : 'sideways');
-                
-                // Check LR accuracy
-                if (pred.lrTrend === actualTrend) lrCorrect++;
-                
-                // Check XGB accuracy (simplified: did it predict direction correctly)
-                if (pred.xgbUpProb) {
-                    const predictedUp = pred.xgbUpProb > 0.5;
-                    const actualUp = actualChange > 0;
-                    if (predictedUp === actualUp) xgbCorrect++;
-                }
-                
-                total++;
-            }
-            
-            if (total === 0) return null;
-            
-            return {
-                total,
-                lrAccuracy: (lrCorrect / total * 100).toFixed(1),
-                xgbAccuracy: (xgbCorrect / total * 100).toFixed(1)
-            };
-        }
-
-        function viewPredictionHistory() {
-            const input = document.getElementById('history-ticker-input');
-            const ticker = input.value.trim().toUpperCase();
-            
-            if (!ticker) {
-                showAllHistory();
-                return;
-            }
-            
-            const history = getPredictionHistory(ticker);
-            const accuracy = calculateAccuracy(ticker);
-            
-            renderHistoryList(history, ticker, accuracy);
-        }
-
-        function showAllHistory() {
-            const allHistory = getPredictionHistory();
-            const tickers = Object.keys(allHistory).filter(t => allHistory[t].length > 0);
-            
-            if (tickers.length === 0) {
-                document.getElementById('history-list').innerHTML = '<p style="color: #666; font-style: italic;">No prediction history yet. Analyze some stocks first.</p>';
-                document.getElementById('history-summary').style.display = 'none';
-                return;
-            }
-            
-            // Show summary of all tickers
-            let html = '<h3>All Tracked Tickers</h3><div style="display: flex; flex-wrap: wrap; gap: 10px;">';
-            tickers.forEach(ticker => {
-                const count = allHistory[ticker].length;
-                const latest = allHistory[ticker][0];
-                html += `<div onclick="viewTickerHistory('${ticker}')" style="padding: 10px 15px; background: #e3f2fd; border-radius: 4px; cursor: pointer;">`;
-                html += `<strong>${ticker}</strong> - ${count} predictions<br>`;
-                html += `<span style="font-size: 12px; color: #666;">Latest: ${new Date(latest.timestamp).toLocaleDateString()}</span>`;
-                html += `</div>`;
-            });
-            html += '</div>';
-            
-            document.getElementById('history-list').innerHTML = html;
-            document.getElementById('history-summary').style.display = 'none';
-        }
-
-        function viewTickerHistory(ticker) {
-            document.getElementById('history-ticker-input').value = ticker;
-            viewPredictionHistory();
-        }
-
-        function renderHistoryList(history, ticker, accuracy) {
-            const container = document.getElementById('history-list');
-            const summary = document.getElementById('history-summary');
-            
-            if (history.length === 0) {
-                container.innerHTML = `<p style="color: #666; font-style: italic;">No history found for ${ticker}</p>`;
-                summary.style.display = 'none';
-                return;
-            }
-            
-            // Show accuracy summary
-            if (accuracy) {
-                summary.innerHTML = `
-                    <h3>${ticker} - Model Accuracy</h3>
-                    <p>Based on ${accuracy.total} tracked predictions:</p>
-                    <ul>
-                        <li><strong>Linear Regression Direction Accuracy:</strong> ${accuracy.lrAccuracy}%</li>
-                        <li><strong>XGBoost Direction Accuracy:</strong> ${accuracy.xgbAccuracy}%</li>
-                    </ul>
-                    <p style="font-size: 12px; color: #666;">Note: Accuracy calculated by comparing predictions to subsequent actual price movements.</p>
-                `;
-                summary.style.display = 'block';
-            } else {
-                summary.style.display = 'none';
-            }
-            
-            // Show history table
-            let html = `<h3>${ticker} - Prediction History</h3>`;
-            html += '<div style="overflow-x: auto;"><table style="width: 100%; border-collapse: collapse; font-size: 13px;">';
-            html += '<thead><tr style="background: #f5f5f5;">';
-            html += '<th style="padding: 8px; text-align: left;">Date</th>';
-            html += '<th style="padding: 8px; text-align: left;">Price</th>';
-            html += '<th style="padding: 8px; text-align: left;">LR Trend</th>';
-            html += '<th style="padding: 8px; text-align: left;">XGB Up%</th>';
-            html += '<th style="padding: 8px; text-align: left;">XGB Exp</th>';
-            html += '</tr></thead><tbody>';
-            
-            history.forEach((pred, idx) => {
-                html += `<tr style="border-bottom: 1px solid #eee; ${idx % 2 === 0 ? 'background: #fafafa;' : ''}">`;
-                html += `<td style="padding: 8px;">${new Date(pred.timestamp).toLocaleString()}</td>`;
-                html += `<td style="padding: 8px;">$${pred.currentPrice}</td>`;
-                html += `<td style="padding: 8px;">${pred.lrTrend || 'N/A'}</td>`;
-                html += `<td style="padding: 8px;">${pred.xgbUpProb ? (pred.xgbUpProb * 100).toFixed(0) + '%' : 'N/A'}</td>`;
-                html += `<td style="padding: 8px; ${pred.xgbExpectedReturn >= 0 ? 'color: #4CAF50;' : 'color: #f44336;'}">${pred.xgbExpectedReturn || 'N/A'}%</td>`;
-                html += '</tr>';
-            });
-            
-            html += '</tbody></table></div>';
-            container.innerHTML = html;
-        }
-
-        // Modify analyze function to save predictions
-        const originalAnalyze = analyze;
-        analyze = async function(ticker = null, silent = false) {
-            const input = document.getElementById('ticker-input');
-            const btn = document.getElementById('analyze-btn');
-            const targetTicker = ticker || input.value.trim().toUpperCase();
-            
-            if (!targetTicker) return;
-            if (!silent) {
-                btn.disabled = true;
-                btn.textContent = 'Loading...';
-            }
-
-            try {
-                const response = await fetch(`${backendUrl}/api/stock/${targetTicker}`);
-                if (!response.ok) {
-                    const err = await response.json();
-                    throw new Error(err.error || 'Failed to fetch');
-                }
-                const data = await response.json();
-                
-                // Save to prediction history
-                savePrediction(data);
-                
-                currentResult = data;
-                displayResults(data);
-                if (!silent) updateLastRefreshTime();
-            } catch (err) {
-                if (!silent) alert('Error: ' + err.message);
-                console.error(err);
-            } finally {
-                if (!silent) {
-                    btn.disabled = false;
-                    btn.textContent = 'Analyze';
-                }
-            }
-        };
-
-        // Keyboard shortcuts
-        document.getElementById('url-input')?.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') connect();
-        });
-        document.getElementById('ticker-input')?.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') analyze();
-        });
-        document.getElementById('watchlist-input')?.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') addToWatchlist();
-        });
-        document.getElementById('batch-input')?.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') analyzeBatch();
-        });
-        document.getElementById('compare-3')?.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') compareStocks();
-        });
-        document.getElementById('portfolio-price')?.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') addPosition();
-        });
-    </script>
+    <script src="app.js"></script>
 </body>
 </html>
