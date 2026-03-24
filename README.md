@@ -1,85 +1,133 @@
-# Sovereign Terminal | Volatility Forecasting
+# Trading Dashboard
 
-A premium volatility prediction dashboard for S&P 500 stocks, built with React and FastAPI. Features the "Silent Luxury" design system - a sophisticated dark interface for serious traders.
+A live stock prediction dashboard using Linear Regression, XGBoost, and Monte Carlo simulation models.
 
-## Quick Start
+**Live URL:** https://marcocyl04-ux.github.io/shreysproject/
 
-### Option 1: Run with batch script
-```bash
-start.bat
-```
+---
 
-### Option 2: Manual start
+## How to Use
 
-**Backend:**
-```bash
-cd backend
-pip install -r requirements.txt
-python -m uvicorn main:app --reload --port 8000
-```
+### Step 1: Open the Dashboard
+Go to https://marcocyl04-ux.github.io/shreysproject/
 
-**Frontend:**
-```bash
-cd frontend
-npm install
-npm run dev
-```
+You should see the Trading Dashboard interface with a "Backend Connection" panel.
 
-**Open:** http://localhost:3000
+### Step 2: Start the Backend (Colab)
+1. Open the Colab notebook: **trading_dashboard.ipynb**
+   - You can upload it to Google Colab or run it locally
+2. Click **Runtime → Run all** (or Ctrl+F9)
+3. Wait for installations and server startup (~1 minute)
+4. Look for the output in the last cell showing:
+   ```
+   ============================================================
+   🚀 SERVER READY!
+   ============================================================
+   
+   Public URL: https://abc123.ngrok.io
+   
+   COPY THIS URL INTO THE FRONTEND
+   ```
 
-## Architecture
+### Step 3: Connect
+1. Copy the ngrok URL (e.g., `https://abc123.ngrok.io`)
+2. Paste it into the "ngrok URL from Colab" field in the dashboard
+3. Click **Connect**
+4. You should see "Connected to backend" in green
 
-```
-backend/
-  main.py           # FastAPI with yfinance integration
-  requirements.txt  # Python dependencies
+### Step 4: Analyze Stocks
+1. Enter a stock ticker (e.g., `AAPL`, `TSLA`, `NVDA`) in the search box
+2. Click **Analyze**
+3. View predictions from all three models:
+   - **Linear Regression**: Next-day and 7-day price predictions with confidence intervals
+   - **XGBoost**: Direction probabilities (up/down/sideways) with feature importance
+   - **Monte Carlo**: Risk simulation showing possible price paths and VaR
 
-frontend/
-  src/
-    pages/
-      Dashboard.jsx     # Main watchlist view
-      StockDetail.jsx   # Individual stock analysis
-      Models.jsx        # Model performance comparison
-    components/
-      Layout.jsx        # Sidebar navigation
-      VolatilityChart.jsx
-      PriceChart.jsx
-      MetricCard.jsx
-      PredictionTable.jsx
-    hooks/
-      api.js            # Data fetching (mock for now)
-```
+---
 
 ## Features
 
-- **Dashboard**: S&P 500 watchlist with predicted volatility
-- **Stock Detail**: 90-day price/volatility charts, technical indicators
-- **Model Comparison**: XGBoost vs Random Forest vs Linear Regression vs Baseline
-- **Silent Luxury Design**: Midnight color palette, editorial typography, glassmorphism
+- **Live Data**: Real-time prices from Yahoo Finance
+- **Three ML Models**:
+  - Linear Regression (trend prediction)
+  - XGBoost (ensemble classification)
+  - Monte Carlo (risk simulation)
+- **Watchlist**: Save stocks for quick access
+- **Persistent Storage**: Watchlist and backend URL are saved locally
 
-## API Endpoints
+---
 
-| Endpoint | Description |
-|----------|-------------|
-| `GET /api/stocks` | List S&P 500 stocks with predictions |
-| `GET /api/stock/{ticker}/history` | Historical price + volatility data |
-| `GET /api/stock/{ticker}/predictions` | Next-day RV predictions |
-| `GET /api/metrics` | Model performance metrics |
+## Troubleshooting
 
-## Design System
+### "Backend Not Connected"
+- Make sure you've started the Colab notebook
+- Check that the ngrok URL is correct (copy the full URL including `https://`)
+- If ngrok shows an error, restart the Colab runtime (Runtime → Restart runtime)
 
-**Colors:**
-- Surface Base: `#121315`
-- Primary (Emerald): `#00FF94`
-- Secondary (Rose): `#B00038`
+### "Failed to fetch stock data"
+- The ticker might not exist
+- Yahoo Finance rate limits may apply - wait 30 seconds and try again
+- Check that your Colab session is still active
 
-**Typography:**
-- Editorial: Newsreader (headlines)
-- Technical: Inter (body)
-- Data: Space Grotesk (numbers)
+### Colab session expired
+- Colab sessions last ~12 hours
+- Simply restart the notebook (Runtime → Run all)
+- You'll get a new ngrok URL to paste into the dashboard
 
-## Tech Stack
+---
 
-- **Backend**: FastAPI, yfinance, pandas, numpy
-- **Frontend**: React, Tailwind CSS, Recharts
-- **Design**: Custom "Silent Luxury" system
+## Models Explained
+
+### Linear Regression
+- **Purpose**: Predict price trend based on historical patterns
+- **Output**: Predicted price + 95% confidence interval
+- **Retraining**: On every request (last 90 days of data)
+
+### XGBoost
+- **Purpose**: Classify direction (up/down/sideways) using multiple features
+- **Features**: RSI, MACD, Bollinger Bands, volume, momentum
+- **Output**: Probability distribution across three directions
+- **Retraining**: Weekly (when notebook restarts)
+
+### Monte Carlo
+- **Purpose**: Simulate risk and potential price paths
+- **Method**: Geometric Brownian Motion
+- **Output**: 1000 simulated paths, percentiles, Value at Risk (VaR)
+
+---
+
+## Technical Details
+
+- **Frontend**: React + Vite + Tailwind CSS (hosted on GitHub Pages)
+- **Backend**: FastAPI + Python (runs on Google Colab)
+- **Tunnel**: ngrok (exposes local server to internet)
+- **Data Source**: Yahoo Finance via `yfinance`
+- **ML Libraries**: scikit-learn, xgboost
+
+---
+
+## Files in This Repo
+
+```
+shreysproject/
+├── trading_dashboard.ipynb    # Colab backend - run this first
+├── frontend/                  # React source code (dev use)
+├── docs/                      # Built frontend (GitHub Pages)
+│   ├── index.html
+│   └── assets/
+└── README.md                  # This file
+```
+
+---
+
+## Notes
+
+- **Free tier limitations**: ngrok may have rate limits (40 requests/minute)
+- **Session timeout**: Colab sessions expire after ~12 hours of inactivity
+- **Data freshness**: Prices are cached for 15 minutes to avoid rate limits
+- **No financial advice**: This is for educational purposes only
+
+---
+
+**Built by:** [Your names here]
+**Date:** March 2026

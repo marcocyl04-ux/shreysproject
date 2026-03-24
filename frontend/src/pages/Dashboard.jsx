@@ -1,158 +1,196 @@
 import React, { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
-import { ArrowUpRight, ArrowDownRight, Activity, TrendingUp } from 'lucide-react'
-import { fetchStocks, fetchMetrics } from '../hooks/api'
-import VolatilityChart from '../components/VolatilityChart'
-import MetricCard from '../components/MetricCard'
+import { useApi } from '../hooks/api'
+import ConnectionPanel from '../components/ConnectionPanel'
+import StockSearch from '../components/StockSearch'
+import Watchlist from '../components/Watchlist'
+import LinearRegressionCard from '../components/LinearRegressionCard'
+import XGBoostCard from '../components/XGBoostCard'
+import MonteCarloCard from '../components/MonteCarloCard'
+import { CircleNotch, Warning, TrendUp, CurrencyDollar, Activity } from 'phosphor-react'
 
 const Dashboard = () => {
-  const [stocks, setStocks] = useState([])
-  const [metrics, setMetrics] = useState([])
-  const [loading, setLoading] = useState(true)
+  const { connected, loading, fetchStockPrediction, fetchStockHistory } = useApi()
+  const [selectedTicker, setSelectedTicker] = useState(null)
+  const [stockData, setStockData] = useState(null)
+  const [watchlist, setWatchlist] = useState([])
+  const [searchLoading, setSearchLoading] = useState(false)
+  const [error, setError] = useState(null)
 
+  // Load watchlist from localStorage on mount
   useEffect(() => {
-    const loadData = async () => {
+    const saved = localStorage.getItem('watchlist')
+    if (saved) {
       try {
-        const [stocksData, metricsData] = await Promise.all([
-          fetchStocks(),
-          fetchMetrics()
-        ])
-        setStocks(stocksData)
-        setMetrics(metricsData)
-      } catch (error) {
-        console.error('Failed to load data:', error)
-      } finally {
-        setLoading(false)
+        setWatchlist(JSON.parse(saved))
+      } catch (e) {
+        console.error('Failed to parse watchlist')
       }
     }
-    loadData()
   }, [])
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-white/40">Loading market data...</div>
-      </div>
-    )
+  // Save watchlist when it changes
+  useEffect(() => {
+    localStorage.setItem('watchlist', JSON.stringify(watchlist))
+  }, [watchlist])
+
+  const handleSearch = async (ticker) => {
+    if (!connected) {
+      setError('Please connect to the backend first')
+      return
+    }
+
+    setSearchLoading(true)
+    setError(null)
+    setSelectedTicker(ticker)
+
+    try {
+      const data = await fetchStockPrediction(ticker)
+      setStockData(data)
+
+      // Add to watchlist if not already there
+      setWatchlist(prev => {
+        if (prev.find(s => s.ticker === ticker)) return prev
+        return [...prev, {
+          ticker: data.ticker,
+          current_price: data.current_price,
+          change_pct: data.change_pct,
+          predicted_return: data.linear_regression?.next_day?.predicted_return
+        }]
+      })
+    } catch (err) {
+      setError(err.message || 'Failed to fetch stock data')
+      setStockData(null)
+    } finally {
+      setSearchLoading(false)
+    }
   }
 
-  const topGainers = stocks.slice(0, 3)
-  const bestModel = metrics.reduce((prev, current) => 
-    prev.improvement_vs_baseline > current.improvement_vs_baseline ? prev : current
-  , metrics[0])
+  const handleSelectFromWatchlist = (ticker) => {
+    handleSearch(ticker)
+  }
+
+  const handleRemoveFromWatchlist = (ticker) => {
+    setWatchlist(prev => prev.filter(s => s.ticker !== ticker))
+    if (selectedTicker === ticker) {
+      setSelectedTicker(null)
+      setStockData(null)
+    }
+  }
 
   return (
-    <div className="space-y-8">
-      {/* Hero Section */}
-      <div className="grid grid-cols-12 gap-6">
-        <div className="col-span-8">
-          <h1 className="editorial-heading text-5xl text-white/90 mb-4">
-            The Market at a Glance
-          </h1>
-          <p className="text-white/50 text-lg max-w-2xl leading-relaxed">
-            Predicting next-day realized volatility for S&P 500 constituents using 
-            technical indicators and news sentiment analysis.
-          </p>
-        </div>
-        <div className="col-span-4 flex items-end justify-end">
-          <div className="glass-panel rounded-2xl p-6 text-right">
-            <p className="text-xs text-white/40 uppercase tracking-widest font-data mb-1">
-              Best Model
-            </p>
-            <p className="text-3xl font-editorial text-primary mb-1">
-              {bestModel?.model_name || 'XGBoost'}
-            </p>
-            <p className="text-sm text-white/60">
-              <span className="text-primary">+{bestModel?.improvement_vs_baseline || 30.8}%</span> vs baseline
-            </p>
+    <div className="min-h-screen bg-gray-50">
+      {/* Header */}
+      <header className="bg-white border-b border-gray-200 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-blue-600 rounded-lg flex items-center justify-center">
+                <TrendUp className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">Trading Dashboard</h1>
+                <p className="text-sm text-gray-500">ML-Powered Stock Predictions</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className={`w-2 h-2 rounded-full ${connected ? 'bg-green-500' : 'bg-red-500'}`} />
+              <span className="text-sm text-gray-600">
+                {connected ? 'Connected' : 'Disconnected'}
+              </span>
+            </div>
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* Metrics Overview */}
-      <div className="grid grid-cols-4 gap-6">
-        {metrics.slice(1).map((model, idx) => (
-          <MetricCard key={model.model_name} model={model} index={idx} />
-        ))}
-      </div>
+      <main className="max-w-7xl mx-auto px-6 py-8">
+        {/* Connection Panel */}
+        <ConnectionPanel />
 
-      {/* Stock Grid */}
-      <div>
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="font-editorial text-2xl text-white/90">Watchlist</h3>
-          <span className="text-sm text-white/40 font-data">{stocks.length} securities</span>
-        </div>
-        
-        <div className="grid grid-cols-2 gap-4">
-          {stocks.map((stock) => (
-            <Link
-              key={stock.ticker}
-              to={`/stock/${stock.ticker}`}
-              className="group glass-panel rounded-xl p-6 hover:bg-surface-bright/40 transition-all duration-300"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div>
-                  <div className="flex items-center gap-3">
-                    <h4 className="text-xl font-data font-semibold text-white">{stock.ticker}</h4>
-                    {stock.trend === 'up' ? (
-                      <ArrowUpRight className="w-4 h-4 text-primary" />
-                    ) : (
-                      <ArrowDownRight className="w-4 h-4 text-secondary-text" />
-                    )}
+        {/* Error Message */}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3 text-red-700">
+            <Warning className="w-5 h-5" />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {/* Not Connected Warning */}
+        {!connected && (
+          <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg text-yellow-800">
+            <p className="font-medium">⚠️ Backend Not Connected</p>
+            <p className="text-sm mt-1">
+              Open the Colab notebook, run all cells, and paste the ngrok URL above to start using the dashboard.
+            </p>
+          </div>
+        )}
+
+        <div className="grid grid-cols-12 gap-6">
+          {/* Left Sidebar */}
+          <div className="col-span-4 space-y-6">
+            <StockSearch onSearch={handleSearch} loading={searchLoading} />
+            <Watchlist 
+              stocks={watchlist} 
+              onSelect={handleSelectFromWatchlist}
+              onRemove={handleRemoveFromWatchlist}
+            />
+          </div>
+
+          {/* Main Content */}
+          <div className="col-span-8 space-y-6">
+            {searchLoading ? (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 flex flex-col items-center justify-center">
+                <CircleNotch className="w-8 h-8 text-blue-600 animate-spin mb-4" />
+                <p className="text-gray-600">Loading predictions...</p>
+              </div>
+            ) : stockData ? (
+              <>
+                {/* Stock Header */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-6">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className="w-16 h-16 bg-blue-100 rounded-xl flex items-center justify-center">
+                        <span className="text-2xl font-bold text-blue-700">{stockData.ticker}</span>
+                      </div>
+                      <div>
+                        <h2 className="text-3xl font-bold text-gray-900">${stockData.current_price}</h2>
+                        <p className={`text-lg font-medium ${
+                          stockData.change_pct > 0 ? 'text-green-600' : 
+                          stockData.change_pct < 0 ? 'text-red-600' : 'text-gray-600'
+                        }`}>
+                          {stockData.change_pct > 0 ? '+' : ''}{stockData.change_pct}% today
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right text-sm text-gray-500">
+                      <p>Last updated</p>
+                      <p>{new Date(stockData.last_updated).toLocaleTimeString()}</p>
+                    </div>
                   </div>
-                  <p className="text-sm text-white/50 mt-1">{stock.name}</p>
                 </div>
-                <div className="text-right">
-                  <p className="text-lg data-mono text-white">${stock.current_price}</p>
-                  <p className="text-xs text-white/40">{stock.sector}</p>
-                </div>
-              </div>
-              
-              <div className="flex items-center justify-between pt-4 border-t border-outline/5">
-                <div>
-                  <p className="text-xs text-white/40 uppercase tracking-wider font-data mb-1">
-                    Predicted Vol
-                  </p>
-                  <p className="text-2xl data-mono text-primary">
-                    {(stock.predicted_volatility || 0).toFixed(2)}%
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-white/40 uppercase tracking-wider font-data mb-1">
-                    Trend
-                  </p>
-                  <span className={`text-sm ${stock.trend === 'up' ? 'text-primary' : 'text-secondary-text'}`}>
-                    {stock.trend === 'up' ? 'Bullish' : 'Bearish'}
-                  </span>
-                </div>
-              </div>
-            </Link>
-          ))}
-        </div>
-      </div>
 
-      {/* Chart Section */}
-      <div className="glass-panel rounded-2xl p-8">
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h3 className="font-editorial text-2xl text-white/90">Volatility Trends</h3>
-            <p className="text-sm text-white/40 mt-1">Realized volatility vs predictions</p>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-primary" />
-              <span className="text-xs text-white/60">Actual RV</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-white/30" />
-              <span className="text-xs text-white/60">Predicted</span>
-            </div>
+                {/* Model Predictions */}
+                <div className="grid grid-cols-2 gap-6">
+                  <LinearRegressionCard data={stockData.linear_regression?.next_day} />
+                  <LinearRegressionCard data={stockData.linear_regression?.next_7_days} />
+                </div>
+
+                <div className="grid grid-cols-2 gap-6">
+                  <XGBoostCard data={stockData.xgboost} />
+                  <MonteCarloCard data={stockData.monte_carlo} />
+                </div>
+              </>
+            ) : (
+              <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
+                <Activity className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No Stock Selected</h3>
+                <p className="text-gray-500">
+                  Search for a stock ticker to see ML predictions from Linear Regression, XGBoost, and Monte Carlo models.
+                </p>
+              </div>
+            )}
           </div>
         </div>
-        <div className="h-80">
-          <VolatilityChart data={topGainers} />
-        </div>
-      </div>
+      </main>
     </div>
   )
 }
