@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from datetime import datetime
@@ -10,30 +10,52 @@ from sklearn.metrics import r2_score
 import xgboost as xgb
 import os
 
+# Create app with explicit CORS origins
 app = FastAPI(title="Trading Dashboard API", version="1.0.0")
 
-# CORS for GitHub Pages frontend - MUST be first
+# Add CORS middleware BEFORE anything else
+origins = [
+    "*",
+    "https://marcocyl04-ux.github.io",
+    "https://marcocyl04-ux.github.io/shreysproject",
+    "http://localhost:3000",
+    "http://localhost:8000",
+    "http://localhost",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD"],
     allow_headers=["*"],
+    expose_headers=["*"],
+    max_age=3600,
 )
 
-# Add CORS headers to all responses
+# Add global middleware to ensure CORS headers
 @app.middleware("http")
-async def add_cors_headers(request, call_next):
+async def cors_middleware(request: Request, call_next):
+    if request.method == "OPTIONS":
+        return JSONResponse(
+            content={},
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS, HEAD",
+                "Access-Control-Allow-Headers": "*",
+            },
+        )
+    
     response = await call_next(request)
     response.headers["Access-Control-Allow-Origin"] = "*"
-    response.headers["Access-Control-Allow-Methods"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, HEAD"
     response.headers["Access-Control-Allow-Headers"] = "*"
     return response
 
 # Data cache
 fetcher_cache = {}
 fetcher_cache_time = {}
-CACHE_DURATION = 900  # 15 minutes
+CACHE_DURATION = 900
 
 class DataFetcher:
     def get_stock_data(self, ticker: str, period: str = "1y"):
@@ -261,11 +283,14 @@ mc_model = MonteCarloModel()
 
 @app.get("/health")
 def health_check():
-    return {
-        "status": "healthy",
-        "timestamp": datetime.now().isoformat(),
-        "models": {"linear_regression": True, "xgboost": True, "monte_carlo": True}
-    }
+    return JSONResponse(
+        content={
+            "status": "healthy",
+            "timestamp": datetime.now().isoformat(),
+            "models": {"linear_regression": True, "xgboost": True, "monte_carlo": True}
+        },
+        headers={"Access-Control-Allow-Origin": "*"}
+    )
 
 @app.get("/api/stock/{ticker}")
 def get_stock_prediction(ticker: str):
@@ -275,15 +300,18 @@ def get_stock_prediction(ticker: str):
     lr_7d = lr_model.predict(df, days_ahead=7)
     xgb_pred = xgb_model.predict(df)
     mc_pred = mc_model.simulate(df, days=7, simulations=1000)
-    return {
-        "ticker": ticker,
-        "current_price": current_info["current_price"],
-        "change_pct": current_info["change_pct"],
-        "last_updated": datetime.now().isoformat(),
-        "linear_regression": {"next_day": lr_1d, "next_7_days": lr_7d},
-        "xgboost": xgb_pred,
-        "monte_carlo": mc_pred
-    }
+    return JSONResponse(
+        content={
+            "ticker": ticker,
+            "current_price": current_info["current_price"],
+            "change_pct": current_info["change_pct"],
+            "last_updated": datetime.now().isoformat(),
+            "linear_regression": {"next_day": lr_1d, "next_7_days": lr_7d},
+            "xgboost": xgb_pred,
+            "monte_carlo": mc_pred
+        },
+        headers={"Access-Control-Allow-Origin": "*"}
+    )
 
 @app.get("/api/stock/{ticker}/history")
 def get_stock_history(ticker: str, period: str = "1y"):
@@ -298,7 +326,10 @@ def get_stock_history(ticker: str, period: str = "1y"):
             "close": round(row["Close"], 2),
             "volume": int(row["Volume"])
         })
-    return {"ticker": ticker, "period": period, "data": history}
+    return JSONResponse(
+        content={"ticker": ticker, "period": period, "data": history},
+        headers={"Access-Control-Allow-Origin": "*"}
+    )
 
 if __name__ == "__main__":
     import uvicorn
