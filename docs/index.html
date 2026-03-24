@@ -1,17 +1,198 @@
 <!DOCTYPE html>
-<html lang="en" class="dark">
+<html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <link rel="icon" type="image/svg+xml" href="/terminal-icon.svg" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Sovereign Terminal | Volatility Forecasting</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Newsreader:ital,wght@0,400;0,600;1,400&family=Space+Grotesk:wght@400;500;600&display=swap" rel="stylesheet">
-  <script type="module" crossorigin src="/shreysproject/assets/index-BrjisvTh.js"></script>
-  <link rel="stylesheet" crossorigin href="/shreysproject/assets/index-CMQJ7mam.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Dashboard</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 900px; margin: 0 auto; padding: 20px; background: #f5f5f5; }
+        h1 { margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #333; }
+        .section { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h2 { margin-bottom: 15px; font-size: 18px; }
+        input[type="text"] { padding: 10px; font-size: 16px; border: 1px solid #ddd; border-radius: 4px; width: 300px; }
+        button { padding: 10px 20px; font-size: 16px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px; }
+        button:hover { background: #1976D2; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .status { margin-top: 10px; padding: 10px; border-radius: 4px; }
+        .status.connected { background: #e8f5e9; color: #2e7d32; }
+        .status.error { background: #ffebee; color: #c62828; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 15px; margin-top: 20px; }
+        .card { padding: 15px; border-radius: 8px; }
+        .card.lr { background: #e3f2fd; }
+        .card.xgb { background: #e8f5e9; }
+        .card.mc { background: #fff3e0; }
+        .card h3 { margin-bottom: 10px; font-size: 16px; }
+        .card p { margin: 5px 0; font-size: 14px; }
+        .loading { color: #666; font-style: italic; }
+        .hidden { display: none; }
+    </style>
 </head>
-<body class="bg-surface-lowest text-white antialiased">
-  <div id="root"></div>
+<body>
+    <h1>Trading Dashboard</h1>
+
+    <!-- Connection -->
+    <div class="section">
+        <h2>Backend Connection</h2>
+        <div id="connect-section">
+            <input type="text" id="url-input" placeholder="https://your-api.onrender.com">
+            <button id="connect-btn" onclick="connect()">Connect</button>
+        </div>
+        <div id="connected-section" class="hidden">
+            <p class="status connected">● Connected to <span id="connected-url"></span></p>
+            <button onclick="disconnect()">Disconnect</button>
+        </div>
+        <div id="status-msg"></div>
+    </div>
+
+    <!-- Search -->
+    <div class="section hidden" id="search-section">
+        <h2>Analyze Stock</h2>
+        <input type="text" id="ticker-input" placeholder="AAPL" style="text-transform: uppercase;">
+        <button id="analyze-btn" onclick="analyze()">Analyze</button>
+    </div>
+
+    <!-- Results -->
+    <div class="section hidden" id="results-section">
+        <h2>Results for <span id="result-ticker"></span> — $<span id="result-price"></span> (<span id="result-change"></span>%)</h2>
+        <div class="grid">
+            <div class="card lr">
+                <h3>Linear Regression</h3>
+                <div id="lr-content"></div>
+            </div>
+            <div class="card xgb">
+                <h3>XGBoost</h3>
+                <div id="xgb-content"></div>
+            </div>
+            <div class="card mc">
+                <h3>Monte Carlo</h3>
+                <div id="mc-content"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let backendUrl = '';
+
+        async function connect() {
+            const input = document.getElementById('url-input');
+            const btn = document.getElementById('connect-btn');
+            const status = document.getElementById('status-msg');
+            
+            const url = input.value.trim();
+            if (!url) return;
+
+            btn.disabled = true;
+            btn.textContent = 'Connecting...';
+            status.innerHTML = '';
+
+            try {
+                const response = await fetch(`${url}/health`);
+                if (response.ok) {
+                    backendUrl = url;
+                    document.getElementById('connect-section').classList.add('hidden');
+                    document.getElementById('connected-section').classList.remove('hidden');
+                    document.getElementById('connected-url').textContent = url;
+                    document.getElementById('search-section').classList.remove('hidden');
+                } else {
+                    throw new Error('Backend returned error');
+                }
+            } catch (err) {
+                status.innerHTML = `<p class="status error">Failed to connect: ${err.message}</p>`;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Connect';
+            }
+        }
+
+        function disconnect() {
+            backendUrl = '';
+            document.getElementById('connect-section').classList.remove('hidden');
+            document.getElementById('connected-section').classList.add('hidden');
+            document.getElementById('search-section').classList.add('hidden');
+            document.getElementById('results-section').classList.add('hidden');
+            document.getElementById('status-msg').innerHTML = '';
+            document.getElementById('url-input').value = '';
+        }
+
+        async function analyze() {
+            const input = document.getElementById('ticker-input');
+            const btn = document.getElementById('analyze-btn');
+            const ticker = input.value.trim().toUpperCase();
+            
+            if (!ticker) return;
+
+            btn.disabled = true;
+            btn.textContent = 'Loading...';
+
+            try {
+                const response = await fetch(`${backendUrl}/api/stock/${ticker}`);
+                if (!response.ok) throw new Error('Failed to fetch');
+                const data = await response.json();
+                displayResults(data);
+            } catch (err) {
+                alert('Error: ' + err.message);
+            } finally {
+                btn.disabled = false;
+                btn.textContent = 'Analyze';
+            }
+        }
+
+        function displayResults(data) {
+            document.getElementById('result-ticker').textContent = data.ticker;
+            document.getElementById('result-price').textContent = data.current_price;
+            document.getElementById('result-change').textContent = data.change_pct;
+
+            // Linear Regression
+            const lr = data.linear_regression?.next_day;
+            if (lr?.error) {
+                document.getElementById('lr-content').innerHTML = `<p>${lr.error}</p>`;
+            } else {
+                document.getElementById('lr-content').innerHTML = `
+                    <p><strong>Next Day:</strong> $${lr?.predicted_price} (${lr?.predicted_return}%)</p>
+                    <p><strong>7 Days:</strong> $${data.linear_regression?.next_7_days?.predicted_price} (${data.linear_regression?.next_7_days?.predicted_return}%)</p>
+                    <p><strong>Trend:</strong> ${lr?.trend}</p>
+                    <p><strong>R²:</strong> ${lr?.r2_score}</p>
+                `;
+            }
+
+            // XGBoost
+            const xgb = data.xgboost;
+            if (xgb?.error) {
+                document.getElementById('xgb-content').innerHTML = `<p>${xgb.error}</p>`;
+            } else {
+                document.getElementById('xgb-content').innerHTML = `
+                    <p><strong>Up:</strong> ${(xgb?.direction_probabilities?.up * 100)?.toFixed(1)}%</p>
+                    <p><strong>Sideways:</strong> ${(xgb?.direction_probabilities?.sideways * 100)?.toFixed(1)}%</p>
+                    <p><strong>Down:</strong> ${(xgb?.direction_probabilities?.down * 100)?.toFixed(1)}%</p>
+                    <p><strong>Expected 7d:</strong> ${xgb?.expected_return_7d}%</p>
+                    <p><strong>Confidence:</strong> ${xgb?.confidence}</p>
+                `;
+            }
+
+            // Monte Carlo
+            const mc = data.monte_carlo;
+            if (mc?.error) {
+                document.getElementById('mc-content').innerHTML = `<p>${mc.error}</p>`;
+            } else {
+                document.getElementById('mc-content').innerHTML = `
+                    <p><strong>Median (7d):</strong> $${mc?.percentiles?.p50?.[7]}</p>
+                    <p><strong>Range:</strong> $${mc?.percentiles?.p5?.[7]} - $${mc?.percentiles?.p95?.[7]}</p>
+                    <p><strong>VaR (95%):</strong> ${mc?.var_95}%</p>
+                    <p><strong>Volatility:</strong> ${mc?.volatility}%</p>
+                `;
+            }
+
+            document.getElementById('results-section').classList.remove('hidden');
+        }
+
+        // Allow Enter key
+        document.getElementById('url-input')?.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') connect();
+        });
+        document.getElementById('ticker-input')?.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') analyze();
+        });
+    </script>
 </body>
 </html>
