@@ -1,0 +1,61 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    @apply bg-surface-lowest text-white font-technical;
+    font-feature-settings: "tnum" on, "lnum" on;
+  }
+  
+  /* Custom scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    @apply bg-surface-low;
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    @apply bg-outline rounded-full;
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    @apply bg-white/20;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    @apply bg-surface-high/60 backdrop-blur-glass border border-outline/10;
+  }
+  
+  .ghost-border {
+    @apply border border-white/10;
+  }
+  
+  .glow-primary {
+    @apply shadow-glow;
+  }
+  
+  .data-mono {
+    font-variant-numeric: tabular-nums;
+    @apply font-data;
+  }
+  
+  .editorial-heading {
+    @apply font-editorial tracking-tight;
+  }
+}
+
+@layer utilities {
+  .text-gradient-emerald {
+    @apply bg-gradient-to-r from-primary to-primary-dim bg-clip-text text-transparent;
+  }
+}
