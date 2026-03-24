@@ -1,0 +1,23 @@
+# Dependencies
+frontend/node_modules/
+backend/__pycache__/
+backend/venv/
+*.pyc
+
+# Build
+frontend/dist/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Environment
+.env
+.env.local
