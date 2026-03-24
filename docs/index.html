@@ -10,10 +10,16 @@
         h1 { margin-bottom: 20px; padding-bottom: 10px; border-bottom: 2px solid #333; }
         .section { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
         h2 { margin-bottom: 15px; font-size: 18px; }
-        input[type="text"] { padding: 10px; font-size: 16px; border: 1px solid #ddd; border-radius: 4px; width: 300px; }
+        input[type="text"] { padding: 10px; font-size: 16px; border: 1px solid #ddd; border-radius: 4px; width: 200px; }
         button { padding: 10px 20px; font-size: 16px; background: #2196F3; color: white; border: none; border-radius: 4px; cursor: pointer; margin-left: 10px; }
         button:hover { background: #1976D2; }
         button:disabled { background: #ccc; cursor: not-allowed; }
+        button.secondary { background: #757575; }
+        button.secondary:hover { background: #616161; }
+        button.success { background: #4CAF50; }
+        button.success:hover { background: #45a049; }
+        button.danger { background: #f44336; }
+        button.danger:hover { background: #da190b; }
         .status { margin-top: 10px; padding: 10px; border-radius: 4px; }
         .status.connected { background: #e8f5e9; color: #2e7d32; }
         .status.error { background: #ffebee; color: #c62828; }
@@ -24,8 +30,27 @@
         .card.mc { background: #fff3e0; }
         .card h3 { margin-bottom: 10px; font-size: 16px; }
         .card p { margin: 5px 0; font-size: 14px; }
-        .loading { color: #666; font-style: italic; }
         .hidden { display: none; }
+        
+        /* Watchlist styles */
+        .watchlist-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: #f5f5f5; margin-bottom: 8px; border-radius: 4px; }
+        .watchlist-item:hover { background: #eeeeee; }
+        .watchlist-ticker { font-weight: bold; font-size: 18px; cursor: pointer; color: #2196F3; }
+        .watchlist-ticker:hover { text-decoration: underline; }
+        .watchlist-price { font-size: 14px; color: #666; }
+        .watchlist-change { font-size: 14px; }
+        .watchlist-change.up { color: #4CAF50; }
+        .watchlist-change.down { color: #f44336; }
+        .watchlist-controls { display: flex; gap: 10px; }
+        
+        /* Refresh controls */
+        .refresh-controls { display: flex; align-items: center; gap: 15px; margin-top: 10px; flex-wrap: wrap; }
+        .refresh-controls label { font-size: 14px; }
+        .refresh-controls select { padding: 5px 10px; font-size: 14px; }
+        .last-updated { font-size: 12px; color: #666; }
+        
+        /* Export section */
+        .export-buttons { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; }
     </style>
 </head>
 <body>
@@ -35,26 +60,55 @@
     <div class="section">
         <h2>Backend Connection</h2>
         <div id="connect-section">
-            <input type="text" id="url-input" placeholder="https://your-api.onrender.com">
+            <input type="text" id="url-input" placeholder="https://your-api.onrender.com" style="width: 300px;">
             <button id="connect-btn" onclick="connect()">Connect</button>
         </div>
         <div id="connected-section" class="hidden">
             <p class="status connected">● Connected to <span id="connected-url"></span></p>
-            <button onclick="disconnect()">Disconnect</button>
+            <div class="refresh-controls">
+                <label>Auto-refresh:</label>
+                <select id="refresh-interval" onchange="setAutoRefresh()">
+                    <option value="0">Off</option>
+                    <option value="30">30 seconds</option>
+                    <option value="60" selected>1 minute</option>
+                    <option value="300">5 minutes</option>
+                </select>
+                <button class="secondary" onclick="refreshAll()">Refresh Now</button>
+                <span class="last-updated" id="last-updated"></span>
+            </div>
+            <button onclick="disconnect()" style="margin-top: 10px;">Disconnect</button>
         </div>
         <div id="status-msg"></div>
+    </div>
+
+    <!-- Watchlist -->
+    <div class="section hidden" id="watchlist-section">
+        <h2>Watchlist <span id="watchlist-count" style="font-size: 14px; color: #666;"></span></h2>
+        <div id="watchlist-items"></div>
+        <div style="margin-top: 15px;">
+            <input type="text" id="watchlist-input" placeholder="Add ticker (e.g., NVDA)" maxlength="5">
+            <button class="success" onclick="addToWatchlist()">Add</button>
+            <button class="secondary" onclick="analyzeAll()">Analyze All</button>
+        </div>
     </div>
 
     <!-- Search -->
     <div class="section hidden" id="search-section">
         <h2>Analyze Stock</h2>
-        <input type="text" id="ticker-input" placeholder="AAPL" style="text-transform: uppercase;">
+        <input type="text" id="ticker-input" placeholder="AAPL" maxlength="5" style="text-transform: uppercase;">
         <button id="analyze-btn" onclick="analyze()">Analyze</button>
+        <button class="secondary" onclick="addCurrentToWatchlist()">+ Watchlist</button>
     </div>
 
     <!-- Results -->
     <div class="section hidden" id="results-section">
-        <h2>Results for <span id="result-ticker"></span> — $<span id="result-price"></span> (<span id="result-change"></span>%)</h2>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+            <h2>Results for <span id="result-ticker"></span> — $<span id="result-price"></span> (<span id="result-change"></span>%)</h2>
+            <div class="export-buttons">
+                <button class="secondary" onclick="exportJSON()">Export JSON</button>
+                <button class="secondary" onclick="exportCSV()">Export CSV</button>
+            </div>
+        </div>
         <div class="grid">
             <div class="card lr">
                 <h3>Linear Regression</h3>
@@ -72,69 +126,319 @@
     </div>
 
     <script>
-        let backendUrl = '';
+        // Global state
+        let backendUrl = localStorage.getItem('backendUrl') || '';
+        let watchlist = JSON.parse(localStorage.getItem('watchlist') || '[]');
+        let currentResult = null;
+        let refreshIntervalId = null;
+        let lastRefreshTime = null;
+        
+        // Initialize on load
+        document.addEventListener('DOMContentLoaded', () => {
+            if (backendUrl) {
+                // Try to reconnect
+                connect(true);
+            }
+            renderWatchlist();
+        });
 
-        async function connect() {
+        async function connect(skipInput = false) {
             const input = document.getElementById('url-input');
             const btn = document.getElementById('connect-btn');
             const status = document.getElementById('status-msg');
             
-            const url = input.value.trim();
+            const url = skipInput ? backendUrl : input.value.trim();
             if (!url) return;
 
-            btn.disabled = true;
-            btn.textContent = 'Connecting...';
+            if (!skipInput) {
+                btn.disabled = true;
+                btn.textContent = 'Connecting...';
+            }
             status.innerHTML = '';
 
             try {
                 const response = await fetch(`${url}/health`);
                 if (response.ok) {
                     backendUrl = url;
+                    localStorage.setItem('backendUrl', backendUrl);
                     document.getElementById('connect-section').classList.add('hidden');
                     document.getElementById('connected-section').classList.remove('hidden');
                     document.getElementById('connected-url').textContent = url;
                     document.getElementById('search-section').classList.remove('hidden');
+                    document.getElementById('watchlist-section').classList.remove('hidden');
+                    
+                    // Load saved refresh setting
+                    const savedInterval = localStorage.getItem('refreshInterval') || '60';
+                    document.getElementById('refresh-interval').value = savedInterval;
+                    if (savedInterval !== '0') {
+                        setAutoRefresh();
+                    }
+                    
+                    // Refresh watchlist data
+                    refreshWatchlistData();
                 } else {
                     throw new Error('Backend returned error');
                 }
             } catch (err) {
                 status.innerHTML = `<p class="status error">Failed to connect: ${err.message}</p>`;
+                backendUrl = '';
+                localStorage.removeItem('backendUrl');
             } finally {
-                btn.disabled = false;
-                btn.textContent = 'Connect';
+                if (!skipInput) {
+                    btn.disabled = false;
+                    btn.textContent = 'Connect';
+                }
             }
         }
 
         function disconnect() {
             backendUrl = '';
+            localStorage.removeItem('backendUrl');
+            clearInterval(refreshIntervalId);
+            refreshIntervalId = null;
             document.getElementById('connect-section').classList.remove('hidden');
             document.getElementById('connected-section').classList.add('hidden');
             document.getElementById('search-section').classList.add('hidden');
+            document.getElementById('watchlist-section').classList.add('hidden');
             document.getElementById('results-section').classList.add('hidden');
             document.getElementById('status-msg').innerHTML = '';
             document.getElementById('url-input').value = '';
         }
 
-        async function analyze() {
-            const input = document.getElementById('ticker-input');
-            const btn = document.getElementById('analyze-btn');
+        // Auto-refresh functionality
+        function setAutoRefresh() {
+            const interval = parseInt(document.getElementById('refresh-interval').value);
+            localStorage.setItem('refreshInterval', interval);
+            
+            if (refreshIntervalId) {
+                clearInterval(refreshIntervalId);
+                refreshIntervalId = null;
+            }
+            
+            if (interval > 0) {
+                refreshIntervalId = setInterval(() => {
+                    if (currentResult) {
+                        analyze(currentResult.ticker, true);
+                    }
+                    refreshWatchlistData();
+                }, interval * 1000);
+            }
+        }
+
+        function refreshAll() {
+            if (currentResult) {
+                analyze(currentResult.ticker, true);
+            }
+            refreshWatchlistData();
+        }
+
+        function updateLastRefreshTime() {
+            lastRefreshTime = new Date();
+            document.getElementById('last-updated').textContent = 
+                'Last updated: ' + lastRefreshTime.toLocaleTimeString();
+        }
+
+        // Watchlist functionality
+        function renderWatchlist() {
+            const container = document.getElementById('watchlist-items');
+            const count = document.getElementById('watchlist-count');
+            
+            if (watchlist.length === 0) {
+                container.innerHTML = '<p style="color: #666; font-style: italic;">No stocks in watchlist. Add tickers below.</p>';
+                count.textContent = '';
+                return;
+            }
+            
+            count.textContent = `(${watchlist.length})`;
+            container.innerHTML = watchlist.map(item => `
+                <div class="watchlist-item" data-ticker="${item.ticker}">
+                    <div>
+                        <span class="watchlist-ticker" onclick="analyze('${item.ticker}')">${item.ticker}</span>
+                        <span class="watchlist-price" id="price-${item.ticker}">
+                            ${item.price ? '$' + item.price : ''}
+                        </span>
+                        <span class="watchlist-change ${item.change >= 0 ? 'up' : 'down'}" id="change-${item.ticker}">
+                            ${item.change ? (item.change >= 0 ? '+' : '') + item.change + '%' : ''}
+                        </span>
+                    </div>
+                    <div class="watchlist-controls">
+                        <button class="secondary" onclick="analyze('${item.ticker}')">Analyze</button>
+                        <button class="danger" onclick="removeFromWatchlist('${item.ticker}')">Remove</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function addToWatchlist() {
+            const input = document.getElementById('watchlist-input');
             const ticker = input.value.trim().toUpperCase();
             
             if (!ticker) return;
+            if (watchlist.some(item => item.ticker === ticker)) {
+                alert(`${ticker} is already in watchlist`);
+                return;
+            }
+            
+            watchlist.push({ ticker, price: null, change: null });
+            localStorage.setItem('watchlist', JSON.stringify(watchlist));
+            input.value = '';
+            renderWatchlist();
+            
+            // Fetch initial data
+            if (backendUrl) {
+                fetchWatchlistItem(ticker);
+            }
+        }
 
-            btn.disabled = true;
-            btn.textContent = 'Loading...';
+        function addCurrentToWatchlist() {
+            if (!currentResult) return;
+            const ticker = currentResult.ticker;
+            
+            if (watchlist.some(item => item.ticker === ticker)) {
+                alert(`${ticker} is already in watchlist`);
+                return;
+            }
+            
+            watchlist.push({ 
+                ticker, 
+                price: currentResult.current_price, 
+                change: currentResult.change_pct 
+            });
+            localStorage.setItem('watchlist', JSON.stringify(watchlist));
+            renderWatchlist();
+            alert(`${ticker} added to watchlist`);
+        }
 
+        function removeFromWatchlist(ticker) {
+            watchlist = watchlist.filter(item => item.ticker !== ticker);
+            localStorage.setItem('watchlist', JSON.stringify(watchlist));
+            renderWatchlist();
+        }
+
+        async function fetchWatchlistItem(ticker) {
+            if (!backendUrl) return;
+            
             try {
                 const response = await fetch(`${backendUrl}/api/stock/${ticker}`);
-                if (!response.ok) throw new Error('Failed to fetch');
+                if (!response.ok) return;
                 const data = await response.json();
-                displayResults(data);
+                
+                // Update watchlist item
+                const item = watchlist.find(i => i.ticker === ticker);
+                if (item) {
+                    item.price = data.current_price;
+                    item.change = data.change_pct;
+                    localStorage.setItem('watchlist', JSON.stringify(watchlist));
+                    renderWatchlist();
+                }
             } catch (err) {
-                alert('Error: ' + err.message);
+                console.error(`Failed to fetch ${ticker}:`, err);
+            }
+        }
+
+        async function refreshWatchlistData() {
+            if (!backendUrl || watchlist.length === 0) return;
+            
+            for (const item of watchlist) {
+                await fetchWatchlistItem(item.ticker);
+            }
+            updateLastRefreshTime();
+        }
+
+        async function analyzeAll() {
+            if (!backendUrl || watchlist.length === 0) return;
+            
+            for (const item of watchlist) {
+                await fetchWatchlistItem(item.ticker);
+            }
+            updateLastRefreshTime();
+            alert(`Analyzed ${watchlist.length} stocks`);
+        }
+
+        // Export functionality
+        function exportJSON() {
+            if (!currentResult) {
+                alert('No data to export. Analyze a stock first.');
+                return;
+            }
+            
+            const dataStr = JSON.stringify(currentResult, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${currentResult.ticker}_analysis_${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        function exportCSV() {
+            if (!currentResult) {
+                alert('No data to export. Analyze a stock first.');
+                return;
+            }
+            
+            const data = currentResult;
+            const lr = data.linear_regression?.next_day;
+            const xgb = data.xgboost;
+            const mc = data.monte_carlo;
+            
+            let csv = 'Metric,Value\n';
+            csv += `Ticker,${data.ticker}\n`;
+            csv += `Current Price,${data.current_price}\n`;
+            csv += `Change %,${data.change_pct}\n`;
+            csv += `LR Next Day Price,${lr?.predicted_price || 'N/A'}\n`;
+            csv += `LR Next Day Return %,${lr?.predicted_return || 'N/A'}\n`;
+            csv += `LR Trend,${lr?.trend || 'N/A'}\n`;
+            csv += `XGB Up %,${xgb?.direction_probabilities?.up ? (xgb.direction_probabilities.up * 100).toFixed(1) : 'N/A'}\n`;
+            csv += `XGB Expected 7d %,${xgb?.expected_return_7d || 'N/A'}\n`;
+            csv += `XGB Confidence,${xgb?.confidence || 'N/A'}\n`;
+            csv += `MC Median 7d,${mc?.percentiles?.p50?.[7] || 'N/A'}\n`;
+            csv += `MC VaR 95%,${mc?.var_95 || 'N/A'}\n`;
+            csv += `MC Volatility %,${mc?.volatility || 'N/A'}\n`;
+            
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `${data.ticker}_analysis_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        async function analyze(ticker = null, silent = false) {
+            const input = document.getElementById('ticker-input');
+            const btn = document.getElementById('analyze-btn');
+            const targetTicker = ticker || input.value.trim().toUpperCase();
+            
+            if (!targetTicker) return;
+            if (!silent) {
+                btn.disabled = true;
+                btn.textContent = 'Loading...';
+            }
+
+            try {
+                const response = await fetch(`${backendUrl}/api/stock/${targetTicker}`);
+                if (!response.ok) {
+                    const err = await response.json();
+                    throw new Error(err.error || 'Failed to fetch');
+                }
+                const data = await response.json();
+                currentResult = data;
+                displayResults(data);
+                if (!silent) updateLastRefreshTime();
+            } catch (err) {
+                if (!silent) alert('Error: ' + err.message);
+                console.error(err);
             } finally {
-                btn.disabled = false;
-                btn.textContent = 'Analyze';
+                if (!silent) {
+                    btn.disabled = false;
+                    btn.textContent = 'Analyze';
+                }
             }
         }
 
@@ -186,12 +490,15 @@
             document.getElementById('results-section').classList.remove('hidden');
         }
 
-        // Allow Enter key
+        // Keyboard shortcuts
         document.getElementById('url-input')?.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') connect();
         });
         document.getElementById('ticker-input')?.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') analyze();
+        });
+        document.getElementById('watchlist-input')?.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') addToWatchlist();
         });
     </script>
 </body>
